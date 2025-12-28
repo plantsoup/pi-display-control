@@ -1,0 +1,32 @@
+services:
+  pi-display-control:
+    # Option 1: Use local image (for local testing) - CURRENTLY ACTIVE
+    image: pi-display-control:latest
+    # Option 2: Use Docker Hub image (after pushing to Docker Hub)
+    # image: spearg/pi-display-control:latest
+    # Option 3: Build from local source (alternative to Option 1)
+    # build: .
+    container_name: pi-display-control
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount home directory to access start.sh script
+      - ~/:/host/home:ro
+      # Persistent storage for websites.json
+      - ./data:/data
+      # Optional: Mount scripts directory if start.sh is elsewhere
+      # - /path/to/scripts:/scripts:ro
+    environment:
+      # Path to start.sh script (default: /host/home/start.sh)
+      - SCRIPT_PATH=/host/home/start.sh
+      # Working directory for scripts (default: /host/home)
+      - WORK_DIR=/host/home
+      # Config file location (default: /data/websites.json)
+      - CONFIG_FILE=/data/websites.json
+    # Run with privileges to access host processes (for pkill)
+    privileged: true
+    # Or use specific capabilities instead:
+    # cap_add:
+    #   - SYS_ADMIN
+
