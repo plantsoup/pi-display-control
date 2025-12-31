@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Pi Display Control - Manage your display scripts and websites">
     <title>Pi Display Control</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="preconnect" href="https://www.google.com">
 </head>
 <body>
     <div class="container">
@@ -20,15 +18,15 @@
             <section class="control-section">
                 <h2>Display Controls</h2>
                 <div class="button-group">
-                    <button id="wakeDisplay" class="btn btn-success" type="button">Wake Screen</button>
-                    <button id="stopDisplay" class="btn btn-danger" type="button">Blank Screen</button>
+                    <button id="wakeDisplay" class="btn btn-success">Wake Screen</button>
+                    <button id="stopDisplay" class="btn btn-danger">Blank Screen</button>
                 </div>
             </section>
 
             <!-- Website List Section -->
             <section class="control-section">
                 <h2>Saved Websites</h2>
-                <div id="websiteList" class="website-list" role="list">
+                <div id="websiteList" class="website-list">
                     <!-- Websites will be loaded here -->
                 </div>
             </section>
@@ -39,11 +37,11 @@
                 <form id="addWebsiteForm" class="add-form">
                     <div class="form-group">
                         <label for="websiteName">Website Name:</label>
-                        <input type="text" id="websiteName" placeholder="e.g., My Dashboard" required autocomplete="off">
+                        <input type="text" id="websiteName" placeholder="e.g., My Dashboard" required>
                     </div>
                     <div class="form-group">
                         <label for="websiteUrl">Website URL:</label>
-                        <input type="url" id="websiteUrl" placeholder="https://example.com" autocomplete="url">
+                        <input type="url" id="websiteUrl" placeholder="https://example.com" required>
                         <small class="form-hint">Leave empty for default (Autodarts)</small>
                     </div>
                     <button type="submit" class="btn btn-primary">Add Website</button>
@@ -52,9 +50,10 @@
         </div>
 
         <!-- Status Messages -->
-        <div id="statusMessage" class="status-message" role="alert" aria-live="polite"></div>
+        <div id="statusMessage" class="status-message"></div>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
+

@@ -1,10 +1,6 @@
 // API base URL
 const API_BASE = '';
 
-// Cache for websites
-let websitesCache = null;
-let isLoading = false;
-
 // Load websites on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadWebsites();
@@ -15,76 +11,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display control buttons
     document.getElementById('stopDisplay').addEventListener('click', handleStopDisplay);
     document.getElementById('wakeDisplay').addEventListener('click', handleWakeDisplay);
-    
-    // Event delegation for dynamically created buttons
-    document.addEventListener('click', handleButtonClick);
 });
 
-// Handle button clicks via event delegation
-function handleButtonClick(e) {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    
-    const action = btn.dataset.action;
-    const index = btn.dataset.index ? parseInt(btn.dataset.index) : null;
-    
-    if (action === 'start-display' && index !== null) {
-        e.preventDefault();
-        showMonitorDialog(index);
-    } else if (action === 'delete' && index !== null) {
-        e.preventDefault();
-        deleteWebsite(index);
-    }
-}
-
 // Load and display websites
-async function loadWebsites(force = false) {
-    if (isLoading) return;
-    
-    isLoading = true;
-    showLoadingState();
-    
+async function loadWebsites() {
     try {
-        const response = await fetch(`${API_BASE}/api/websites`, {
-            cache: force ? 'no-cache' : 'default'
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
+        const response = await fetch(`${API_BASE}/api/websites`);
         const websites = await response.json();
-        websitesCache = websites;
         displayWebsites(websites);
     } catch (error) {
         showStatus('Error loading websites: ' + error.message, 'error');
-        displayErrorState();
-    } finally {
-        isLoading = false;
-        hideLoadingState();
     }
-}
-
-// Show loading state
-function showLoadingState() {
-    const websiteList = document.getElementById('websiteList');
-    websiteList.innerHTML = '<div class="loading-skeleton"></div>'.repeat(6);
-}
-
-// Hide loading state
-function hideLoadingState() {
-    // Already handled by displayWebsites
-}
-
-// Show error state
-function displayErrorState() {
-    const websiteList = document.getElementById('websiteList');
-    websiteList.innerHTML = '<p style="color: #a0a0a0; text-align: center; padding: 20px;">Error loading websites. Please refresh the page.</p>';
 }
 
 // Get favicon URL for a website
 function getFaviconUrl(url) {
     if (!url || url.trim() === '') {
+        // Default favicon for Autodarts
         return 'https://www.google.com/s2/favicons?domain=autodarts.io&sz=128';
     }
     try {
@@ -95,33 +38,31 @@ function getFaviconUrl(url) {
     }
 }
 
-// Get gradient color based on index
-const GRADIENTS = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)'
-];
-
+// Get a gradient color based on index for fallback images
 function getGradientColor(index) {
-    return GRADIENTS[index % GRADIENTS.length];
+    const gradients = [
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)'
+    ];
+    return gradients[index % gradients.length];
 }
 
-// Display websites using document fragment for better performance
+// Display websites in the list
 function displayWebsites(websites) {
     const websiteList = document.getElementById('websiteList');
-    
+    websiteList.innerHTML = '';
+
     if (websites.length === 0) {
         websiteList.innerHTML = '<p style="color: #a0a0a0; text-align: center; padding: 20px;">No websites added yet. Add one below!</p>';
         return;
     }
-    
-    const fragment = document.createDocumentFragment();
-    
+
     websites.forEach((website, index) => {
         const item = document.createElement('div');
         item.className = 'website-item';
@@ -134,59 +75,57 @@ function displayWebsites(websites) {
         item.innerHTML = `
             <div class="website-image" style="background: ${gradientColor};">
                 <div class="favicon">
-                    <img src="${faviconUrl}" alt="${escapeHtml(website.name)}" loading="lazy" onerror="this.parentElement.innerHTML='🌐';">
+                    <img src="${faviconUrl}" alt="${escapeHtml(website.name)}" onerror="this.parentElement.innerHTML='🌐';">
                 </div>
             </div>
             <div class="website-content">
-                <div class="website-info">
-                    <h3>
-                        ${escapeHtml(website.name)}
-                        ${isDefault ? '<span class="badge">Default</span>' : ''}
-                    </h3>
-                    <p>${escapeHtml(displayUrl)}</p>
-                </div>
-                <div class="website-actions">
-                    <button class="btn btn-success" data-action="start-display" data-index="${index}">
-                        Start Display
-                    </button>
-                    <button class="btn btn-secondary" data-action="delete" data-index="${index}">
-                        Delete
-                    </button>
+            <div class="website-info">
+                <h3>
+                    ${escapeHtml(website.name)}
+                    ${isDefault ? '<span class="badge">Default</span>' : ''}
+                </h3>
+                <p>${escapeHtml(displayUrl)}</p>
+            </div>
+            <div class="website-actions">
+                    <button class="btn btn-success" onclick="showMonitorDialog(${index})">
+                    Start Display
+                </button>
+                <button class="btn btn-secondary" onclick="deleteWebsite(${index})">
+                    Delete
+                </button>
                 </div>
             </div>
         `;
         
-        fragment.appendChild(item);
+        websiteList.appendChild(item);
     });
-    
-    websiteList.innerHTML = '';
-    websiteList.appendChild(fragment);
 }
 
 // Start display with a website
 async function startDisplay(index, monitor = 'both', url2 = null) {
-    if (!websitesCache || !websitesCache[index]) {
-        await loadWebsites(true);
-    }
-    
-    const website = websitesCache[index];
-    if (!website) {
-        showStatus('Website not found', 'error');
-        return;
-    }
-
-    const payload = {
-        url1: website.url || '',
-        monitor: monitor
-    };
-    
-    if ((monitor === 'both' || monitor === '2') && url2 !== null) {
-        payload.url2 = url2;
-    }
-
     try {
-        setButtonLoading(true);
-        const response = await fetch(`${API_BASE}/api/display`, {
+        const response = await fetch(`${API_BASE}/api/websites`);
+        const websites = await response.json();
+        const website = websites[index];
+        
+        if (!website) {
+            showStatus('Website not found', 'error');
+            return;
+        }
+
+        const payload = {
+            url1: website.url || '',
+            monitor: monitor
+        };
+        
+        // If dual monitor mode and url2 is provided, use it
+        if (monitor === 'both' && url2 !== null) {
+            payload.url2 = url2;
+        } else if (monitor === '2' && url2 !== null) {
+            payload.url2 = url2;
+        }
+
+        const response2 = await fetch(`${API_BASE}/api/display`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -194,7 +133,7 @@ async function startDisplay(index, monitor = 'both', url2 = null) {
             body: JSON.stringify(payload)
         });
 
-        const result = await response.json();
+        const result = await response2.json();
         
         if (result.success) {
             showStatus(result.message, 'success');
@@ -203,180 +142,137 @@ async function startDisplay(index, monitor = 'both', url2 = null) {
         }
     } catch (error) {
         showStatus('Error starting display: ' + error.message, 'error');
-    } finally {
-        setButtonLoading(false);
     }
-}
-
-// Set button loading state
-function setButtonLoading(loading) {
-    document.querySelectorAll('.btn').forEach(btn => {
-        btn.disabled = loading;
-        if (loading) {
-            btn.classList.add('loading');
-        } else {
-            btn.classList.remove('loading');
-        }
-    });
 }
 
 // Show monitor selection dialog
 function showMonitorDialog(index) {
-    if (!websitesCache || !websitesCache[index]) {
-        loadWebsites(true).then(() => showMonitorDialog(index));
-        return;
-    }
-    
-    const website = websitesCache[index];
-    if (!website) {
-        showStatus('Website not found', 'error');
-        return;
-    }
+    const response = fetch(`${API_BASE}/api/websites`)
+        .then(res => res.json())
+        .then(websites => {
+            const website = websites[index];
+            if (!website) {
+                showStatus('Website not found', 'error');
+                return;
+            }
 
-    // Create dialog
-    const dialog = document.createElement('div');
-    dialog.className = 'monitor-dialog-overlay';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.innerHTML = `
-        <div class="monitor-dialog">
-            <h3>Select Monitor(s)</h3>
-            <p class="dialog-subtitle">Choose where to display: ${escapeHtml(website.name)}</p>
-            <div class="monitor-options">
-                <button class="btn btn-primary monitor-btn" data-monitor="1" data-index="${index}">
-                    Monitor 1 Only
-                </button>
-                <button class="btn btn-primary monitor-btn" data-monitor="2" data-index="${index}">
-                    Monitor 2 Only
-                </button>
-                <button class="btn btn-primary monitor-btn" data-monitor="both" data-index="${index}">
-                    Both Monitors (Same Site)
-                </button>
-                <button class="btn btn-primary monitor-btn" data-action="dual-dialog" data-index="${index}">
-                    Both Monitors (Different Sites)
-                </button>
-            </div>
-            <button class="btn btn-secondary" data-action="close-dialog" style="margin-top: 15px; width: 100%;">
-                Cancel
-            </button>
-        </div>
-    `;
-    
-    // Handle dialog button clicks
-    dialog.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) {
-            if (e.target === dialog) closeMonitorDialog();
-            return;
-        }
-        
-        const monitor = btn.dataset.monitor;
-        const action = btn.dataset.action;
-        const idx = btn.dataset.index ? parseInt(btn.dataset.index) : null;
-        
-        if (monitor) {
-            startDisplay(idx, monitor);
-            closeMonitorDialog();
-        } else if (action === 'dual-dialog') {
-            showDualMonitorDialog(idx);
-        } else if (action === 'close-dialog') {
-            closeMonitorDialog();
-        }
-    });
-    
-    // Close on Escape key
-    const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
-            closeMonitorDialog();
-            document.removeEventListener('keydown', escapeHandler);
-        }
-    };
-    document.addEventListener('keydown', escapeHandler);
-    
-    document.body.appendChild(dialog);
-    dialog.focus();
+            // Create dialog
+            const dialog = document.createElement('div');
+            dialog.className = 'monitor-dialog-overlay';
+            dialog.innerHTML = `
+                <div class="monitor-dialog">
+                    <h3>Select Monitor(s)</h3>
+                    <p class="dialog-subtitle">Choose where to display: ${escapeHtml(website.name)}</p>
+                    <div class="monitor-options">
+                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, '1'); closeMonitorDialog();">
+                            Monitor 1 Only
+                        </button>
+                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, '2'); closeMonitorDialog();">
+                            Monitor 2 Only
+                        </button>
+                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, 'both'); closeMonitorDialog();">
+                            Both Monitors (Same Site)
+                        </button>
+                        <button class="btn btn-primary monitor-btn" onclick="showDualMonitorDialog(${index});">
+                            Both Monitors (Different Sites)
+                        </button>
+                    </div>
+                    <button class="btn btn-secondary" onclick="closeMonitorDialog();" style="margin-top: 15px; width: 100%;">
+                        Cancel
+                    </button>
+                </div>
+            `;
+            // Close on overlay click
+            dialog.addEventListener('click', (e) => {
+                if (e.target === dialog) {
+                    closeMonitorDialog();
+                }
+            });
+            document.body.appendChild(dialog);
+        })
+        .catch(error => {
+            showStatus('Error: ' + error.message, 'error');
+        });
 }
 
-// Show dual monitor dialog
+// Show dual monitor dialog for selecting different sites
 function showDualMonitorDialog(index1) {
-    if (!websitesCache) {
-        loadWebsites(true).then(() => showDualMonitorDialog(index1));
-        return;
-    }
-    
-    const website1 = websitesCache[index1];
-    if (!website1) {
-        showStatus('Website not found', 'error');
-        return;
-    }
-
-    closeMonitorDialog();
-
-    const dialog = document.createElement('div');
-    dialog.className = 'monitor-dialog-overlay';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.innerHTML = `
-        <div class="monitor-dialog" style="max-width: 500px;">
-            <h3>Dual Monitor Setup</h3>
-            <div class="dual-monitor-form">
-                <div class="monitor-selection">
-                    <label><strong>Monitor 1:</strong></label>
-                    <div class="selected-site">${escapeHtml(website1.name)}</div>
-                    <small>${escapeHtml(website1.url || 'default (Autodarts)')}</small>
-                </div>
-                <div class="monitor-selection">
-                    <label><strong>Monitor 2:</strong></label>
-                    <select id="monitor2Site" class="site-select">
-                        ${websitesCache.map((site, idx) => 
-                            `<option value="${idx}" ${idx === index1 ? 'selected' : ''}>${escapeHtml(site.name)}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-            </div>
-            <div class="dialog-actions">
-                <button class="btn btn-success" data-action="start-dual" data-index="${index1}">
-                    Start Both Monitors
-                </button>
-                <button class="btn btn-secondary" data-action="close-dialog">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    `;
-    
-    dialog.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) {
-            if (e.target === dialog) closeMonitorDialog();
-            return;
-        }
-        
-        const action = btn.dataset.action;
-        const idx = btn.dataset.index ? parseInt(btn.dataset.index) : null;
-        
-        if (action === 'start-dual' && idx !== null) {
-            const index2 = parseInt(document.getElementById('monitor2Site').value);
-            const website2 = websitesCache[index2];
-            if (website2) {
-                startDisplay(idx, 'both', website2.url || '');
-                closeMonitorDialog();
+    fetch(`${API_BASE}/api/websites`)
+        .then(res => res.json())
+        .then(websites => {
+            const website1 = websites[index1];
+            if (!website1) {
+                showStatus('Website not found', 'error');
+                return;
             }
-        } else if (action === 'close-dialog') {
+
+            // Close existing dialog
             closeMonitorDialog();
-        }
-    });
-    
-    const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
+
+            // Create dual monitor dialog
+            const dialog = document.createElement('div');
+            dialog.className = 'monitor-dialog-overlay';
+            dialog.innerHTML = `
+                <div class="monitor-dialog" style="max-width: 500px;">
+                    <h3>Dual Monitor Setup</h3>
+                    <div class="dual-monitor-form">
+                        <div class="monitor-selection">
+                            <label><strong>Monitor 1:</strong></label>
+                            <div class="selected-site">${escapeHtml(website1.name)}</div>
+                            <small>${escapeHtml(website1.url || 'default (Autodarts)')}</small>
+                        </div>
+                        <div class="monitor-selection">
+                            <label><strong>Monitor 2:</strong></label>
+                            <select id="monitor2Site" class="site-select">
+                                ${websites.map((site, idx) => 
+                                    `<option value="${idx}" ${idx === index1 ? 'selected' : ''}>${escapeHtml(site.name)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="dialog-actions">
+                        <button class="btn btn-success" onclick="startDualMonitor(${index1});">
+                            Start Both Monitors
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeMonitorDialog();">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            // Close on overlay click
+            dialog.addEventListener('click', (e) => {
+                if (e.target === dialog) {
+                    closeMonitorDialog();
+                }
+            });
+            document.body.appendChild(dialog);
+        })
+        .catch(error => {
+            showStatus('Error: ' + error.message, 'error');
+        });
+}
+
+// Start dual monitor with different sites
+function startDualMonitor(index1) {
+    const index2 = parseInt(document.getElementById('monitor2Site').value);
+    fetch(`${API_BASE}/api/websites`)
+        .then(res => res.json())
+        .then(websites => {
+            const website1 = websites[index1];
+            const website2 = websites[index2];
+            
+            if (!website1 || !website2) {
+                showStatus('Website not found', 'error');
+                return;
+            }
+
+            startDisplay(index1, 'both', website2.url || '');
             closeMonitorDialog();
-            document.removeEventListener('keydown', escapeHandler);
-        }
-    };
-    document.addEventListener('keydown', escapeHandler);
-    
-    document.body.appendChild(dialog);
-    dialog.focus();
+        })
+        .catch(error => {
+            showStatus('Error: ' + error.message, 'error');
+        });
 }
 
 // Close monitor dialog
@@ -387,10 +283,9 @@ function closeMonitorDialog() {
     }
 }
 
-// Stop display
+// Stop display (blank screen)
 async function handleStopDisplay() {
     try {
-        setButtonLoading(true);
         const response = await fetch(`${API_BASE}/api/display`, {
             method: 'DELETE'
         });
@@ -404,15 +299,12 @@ async function handleStopDisplay() {
         }
     } catch (error) {
         showStatus('Error blanking display: ' + error.message, 'error');
-    } finally {
-        setButtonLoading(false);
     }
 }
 
 // Wake display
 async function handleWakeDisplay() {
     try {
-        setButtonLoading(true);
         const response = await fetch(`${API_BASE}/api/display/wake`, {
             method: 'POST'
         });
@@ -426,8 +318,6 @@ async function handleWakeDisplay() {
         }
     } catch (error) {
         showStatus('Error waking display: ' + error.message, 'error');
-    } finally {
-        setButtonLoading(false);
     }
 }
 
@@ -444,13 +334,15 @@ async function handleAddWebsite(e) {
     }
 
     try {
-        setButtonLoading(true);
         const response = await fetch(`${API_BASE}/api/websites`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name, url })
+            body: JSON.stringify({
+                name: name,
+                url: url
+            })
         });
 
         const result = await response.json();
@@ -458,15 +350,12 @@ async function handleAddWebsite(e) {
         if (result.success) {
             showStatus(`Website "${name}" added successfully!`, 'success');
             document.getElementById('addWebsiteForm').reset();
-            websitesCache = result.websites;
             displayWebsites(result.websites);
         } else {
             showStatus('Error: ' + result.error, 'error');
         }
     } catch (error) {
         showStatus('Error adding website: ' + error.message, 'error');
-    } finally {
-        setButtonLoading(false);
     }
 }
 
@@ -477,7 +366,6 @@ async function deleteWebsite(index) {
     }
 
     try {
-        setButtonLoading(true);
         const response = await fetch(`${API_BASE}/api/websites/${index}`, {
             method: 'DELETE'
         });
@@ -486,15 +374,12 @@ async function deleteWebsite(index) {
         
         if (result.success) {
             showStatus('Website deleted successfully', 'success');
-            websitesCache = result.websites;
             displayWebsites(result.websites);
         } else {
             showStatus('Error: ' + result.error, 'error');
         }
     } catch (error) {
         showStatus('Error deleting website: ' + error.message, 'error');
-    } finally {
-        setButtonLoading(false);
     }
 }
 
@@ -515,3 +400,4 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+

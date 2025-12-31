@@ -1,339 +1,294 @@
 #!/bin/bash
-set -euo pipefail  # Exit on error, undefined vars, pipe failures
-
-# Configuration
-readonly SCRIPT_NAME="$(basename "$0")"
-readonly DEFAULT_SITE="https://play.autodarts.io/boards/62f17919-bbb2-443b-bf0e-a5d6e27c7898/follow"
-readonly LOG_DIR="${HOME}/.local/log"
-readonly MOUSE_DEV="${MOUSE_DEV:-YOUR_MOUSE_NAME}"  # Override with environment variable
 
 # X display setup
-export DISPLAY="${DISPLAY:-:0}"
-export XAUTHORITY="${XAUTHORITY:-${HOME}/.Xauthority}"
+export DISPLAY=:0
+export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
 
-# Ensure log directory exists
-mkdir -p "$LOG_DIR"
+# Default sites (can be overridden by arguments)
+# Argument patterns:
+#   Monitor 1 only: [url1]
+#   Monitor 2 only: ['', url2]
+#   Both monitors: [url1, url2]
+DEFAULT_SITE="https://play.autodarts.io/boards/62f17919-bbb2-443b-bf0e-a5d6e27c7898/follow"
 
-# Logging function
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $SCRIPT_NAME: $*" | tee -a "${LOG_DIR}/start.sh.log" >&2
-}
+# Parse arguments
+ARG1="${1:-}"
+ARG2="${2:-}"
 
-# Error handling
-error_exit() {
-    log "ERROR: $1"
-    exit "${2:-1}"
-}
+# Determine which monitors to use and their URLs
+if [ -n "$ARG1" ] && [ -n "$ARG2" ]; then
+    # Both monitors: [url1, url2]
+    SITE1="$ARG1"
+    SITE2="$ARG2"
+    USE_MONITOR1=true
+    USE_MONITOR2=true
+elif [ -z "$ARG1" ] && [ -n "$ARG2" ]; then
+    # Monitor 2 only: ['', url2]
+    SITE1="$DEFAULT_SITE"  # Not used, but set for safety
+    SITE2="$ARG2"
+    USE_MONITOR1=false
+    USE_MONITOR2=true
+elif [ -n "$ARG1" ] && [ -z "$ARG2" ]; then
+    # Monitor 1 only: [url1]
+    SITE1="$ARG1"
+    SITE2="$DEFAULT_SITE"  # Not used, but set for safety
+    USE_MONITOR1=true
+    USE_MONITOR2=false
+else
+    # No arguments: use defaults for both
+    SITE1="$DEFAULT_SITE"
+    SITE2="$DEFAULT_SITE"
+    USE_MONITOR1=true
+    USE_MONITOR2=true
+fi
+
+# Mouse device name (set this correctly)
+MOUSE_DEV="YOUR_MOUSE_NAME"   # e.g. "USB Optical Mouse"
+
+# Disable mouse if present
+xinput disable "$MOUSE_DEV" 2>/dev/null || echo "Mouse not found or already disabled" >&2
+
+# Kill any existing Chromium instances
+pkill -9 -f chromium
+
+# Fix Chromium crash state for all user data directories
+PREFS1="$HOME/.config/chromium-autodarts-monitor1/Default/Preferences"
+PREFS2="$HOME/.config/chromium-autodarts-monitor2/Default/Preferences"
+PREFS_SINGLE="$HOME/.config/chromium-autodarts/Default/Preferences"
+PREFS_DEFAULT="$HOME/.config/chromium/Default/Preferences"
+
+[ -f "$PREFS1" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$PREFS1" 2>/dev/null
+[ -f "$PREFS1" ] && sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS1" 2>/dev/null
+[ -f "$PREFS2" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$PREFS2" 2>/dev/null
+[ -f "$PREFS2" ] && sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS2" 2>/dev/null
+[ -f "$PREFS_SINGLE" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$PREFS_SINGLE" 2>/dev/null
+[ -f "$PREFS_SINGLE" ] && sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS_SINGLE" 2>/dev/null
+[ -f "$PREFS_DEFAULT" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$PREFS_DEFAULT" 2>/dev/null
+[ -f "$PREFS_DEFAULT" ] && sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS_DEFAULT" 2>/dev/null
+
+# Detect number of connected monitors
+OUTPUTS=$(xrandr --query 2>/dev/null | grep " connected" | cut -d' ' -f1)
+OUTPUT_COUNT=$(echo "$OUTPUTS" | wc -l | tr -d ' ')
 
 # Find Chromium executable
-find_chromium() {
-    local chromium_paths=(
-        "/usr/lib/chromium/chromium"
-        "/usr/bin/chromium-browser"
-        "/usr/bin/chromium"
-    )
+if [ -f "/usr/lib/chromium/chromium" ]; then
+    CHROMIUM_CMD="/usr/lib/chromium/chromium"
+elif command -v chromium-browser >/dev/null 2>&1; then
+    CHROMIUM_CMD="chromium-browser"
+elif command -v chromium >/dev/null 2>&1; then
+    CHROMIUM_CMD="chromium"
+else
+    echo "Chromium not found!" >&2
+    exit 1
+fi
+
+if [ "$OUTPUT_COUNT" -eq 2 ]; then
+    # Two monitors - launch separate Chromium instances
+    OUTPUT1=$(echo "$OUTPUTS" | head -n 1)
+    OUTPUT2=$(echo "$OUTPUTS" | tail -n 1)
     
-    for path in "${chromium_paths[@]}"; do
-        if [ -f "$path" ] || command -v "$path" >/dev/null 2>&1; then
-            echo "$path"
-            return 0
+    # Ensure OUTPUT1 is set as primary (this helps with window placement)
+    xrandr --output "$OUTPUT1" --primary 2>/dev/null
+    
+    # Launch monitor 1 if requested
+    if [ "$USE_MONITOR1" = true ]; then
+    
+    # Get monitor resolutions (look for active mode with *)
+    RES1=$(xrandr --query | grep -A 10 "^$OUTPUT1" | grep -E "^\s+[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
+    RES2=$(xrandr --query | grep -A 10 "^$OUTPUT2" | grep -E "^\s+[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
+    
+    # If no resolution found, try getting the first available mode
+    if [ -z "$RES1" ]; then
+        RES1=$(xrandr --query | grep -A 10 "^$OUTPUT1" | grep -E "[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
+    fi
+    if [ -z "$RES2" ]; then
+        RES2=$(xrandr --query | grep -A 10 "^$OUTPUT2" | grep -E "[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
+    fi
+    
+    # Get monitor positions from xrandr (look for "connected primary 1920x1080+0+0" format)
+    POS1=$(xrandr --query | grep "^$OUTPUT1" | grep -oE '\+[0-9]+\+[0-9]+' | head -n 1)
+    POS2=$(xrandr --query | grep "^$OUTPUT2" | grep -oE '\+[0-9]+\+[0-9]+' | head -n 1)
+    
+    # Extract coordinates (format: +X+Y)
+    X1=$(echo "$POS1" | sed 's/^+\([0-9]*\)+.*/\1/')
+    Y1=$(echo "$POS1" | sed 's/^+[0-9]*+\([0-9]*\)/\1/')
+    X2=$(echo "$POS2" | sed 's/^+\([0-9]*\)+.*/\1/')
+    Y2=$(echo "$POS2" | sed 's/^+[0-9]*+\([0-9]*\)/\1/')
+    
+    # If positions not found, calculate them
+    if [ -z "$X1" ] || [ -z "$Y1" ]; then
+        X1=0
+        Y1=0
+    fi
+    if [ -z "$X2" ] || [ -z "$Y2" ]; then
+        # Calculate position based on first monitor's dimensions
+        # First get the rotation to determine actual width
+        ROT1_TEMP=$(xrandr --query | grep "^$OUTPUT1" | grep -oE '\s+(left|right|normal|inverted)\s+' | head -n 1 | tr -d ' ')
+        if [ -z "$ROT1_TEMP" ]; then
+            ROT1_TEMP=$(xrandr --query | grep -A 1 "^$OUTPUT1" | grep -E '\s+(left|right|normal|inverted)' | head -n 1 | grep -oE '(left|right|normal|inverted)' | head -n 1)
         fi
-    done
-    
-    # Try to find in PATH
-    if command -v chromium-browser >/dev/null 2>&1; then
-        command -v chromium-browser
-        return 0
-    elif command -v chromium >/dev/null 2>&1; then
-        command -v chromium
-        return 0
-    fi
-    
-    return 1
-}
-
-# Fix Chromium crash state
-fix_chromium_crash_state() {
-    local prefs_file="$1"
-    if [ -f "$prefs_file" ]; then
-        sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$prefs_file" 2>/dev/null || true
-        sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$prefs_file" 2>/dev/null || true
-    fi
-}
-
-# Get monitor information from xrandr
-get_monitor_info() {
-    local output="$1"
-    local info_type="$2"  # "resolution", "position", "rotation"
-    
-    case "$info_type" in
-        resolution)
-            xrandr --query 2>/dev/null | \
-                grep -A 10 "^${output}" | \
-                grep -E "^\s+[0-9]+x[0-9]+" | \
-                head -n 1 | \
-                awk '{print $1}' || true
-            ;;
-        position)
-            xrandr --query 2>/dev/null | \
-                grep "^${output}" | \
-                grep -oE '\+[0-9]+\+[0-9]+' | \
-                head -n 1 || true
-            ;;
-        rotation)
-            xrandr --query 2>/dev/null | \
-                grep "^${output}" | \
-                grep -oE '\s+(left|right|normal|inverted)\s+' | \
-                head -n 1 | \
-                tr -d ' ' || echo "normal"
-            ;;
-    esac
-}
-
-# Calculate monitor dimensions accounting for rotation
-calculate_dimensions() {
-    local resolution="$1"
-    local rotation="${2:-normal}"
-    local orig_width orig_height
-    
-    orig_width=$(echo "$resolution" | cut -d'x' -f1)
-    orig_height=$(echo "$resolution" | cut -d'x' -f2)
-    
-    if [ "$rotation" = "left" ] || [ "$rotation" = "right" ]; then
-        echo "${orig_height}x${orig_width}"
-    else
-        echo "${orig_width}x${orig_height}"
-    fi
-}
-
-# Launch Chromium on a specific monitor
-launch_chromium_monitor() {
-    local monitor_num="$1"
-    local url="$2"
-    local x_pos="$3"
-    local y_pos="$4"
-    local width="$5"
-    local height="$6"
-    local chromium_cmd="$7"
-    
-    local user_data_dir="${HOME}/.config/chromium-autodarts-monitor${monitor_num}"
-    local log_file="${LOG_DIR}/chromium-monitor${monitor_num}.log"
-    
-    mkdir -p "$user_data_dir"
-    fix_chromium_crash_state "${user_data_dir}/Default/Preferences"
-    
-    # Get existing windows before launch
-    local existing_windows=""
-    if command -v xdotool >/dev/null 2>&1; then
-        existing_windows=$(xdotool search --class chromium 2>/dev/null || true)
-    fi
-    
-    log "Launching Chromium for monitor ${monitor_num} with URL: ${url:-default}"
-    
-    # Launch Chromium
-    "$chromium_cmd" \
-        --kiosk \
-        --disable-session-crashed-bubble \
-        --disable-breakpad \
-        --disable-infobars \
-        --disable-suggestions-ui \
-        --disable-translate \
-        --user-data-dir="$user_data_dir" \
-        "${url:-$DEFAULT_SITE}" \
-        >"$log_file" 2>&1 &
-    
-    local chromium_pid=$!
-    log "Chromium PID for monitor ${monitor_num}: $chromium_pid"
-    
-    # Wait and position window if xdotool is available
-    if command -v xdotool >/dev/null 2>&1; then
-        sleep 3
-        local all_windows new_window
-        all_windows=$(xdotool search --class chromium 2>/dev/null || true)
+        ROT1_TEMP="${ROT1_TEMP:-normal}"
         
-        for window_id in $all_windows; do
-            if ! echo "$existing_windows" | grep -q "^${window_id}$"; then
-                new_window="$window_id"
-                break
-            fi
-        done
+        MONITOR1_ORIG_WIDTH=$(echo "$RES1" | cut -d'x' -f1)
+        MONITOR1_ORIG_HEIGHT=$(echo "$RES1" | cut -d'x' -f2)
         
-        if [ -n "${new_window:-}" ]; then
-            xdotool windowmove "$new_window" "$x_pos" "$y_pos" 2>/dev/null || true
-            xdotool windowsize "$new_window" "$width" "$height" 2>/dev/null || true
-            log "Positioned window $new_window at (${x_pos}, ${y_pos}) size ${width}x${height}"
-        fi
-    else
-        log "WARNING: xdotool not found - window positioning skipped"
-    fi
-}
-
-# Parse arguments and determine monitor configuration
-parse_arguments() {
-    local arg1="${1:-}"
-    local arg2="${2:-}"
-    
-    # Determine which monitors to use and their URLs
-    if [ -n "$arg1" ] && [ -n "$arg2" ]; then
-        # Both monitors: [url1, url2]
-        SITE1="$arg1"
-        SITE2="$arg2"
-        USE_MONITOR1=true
-        USE_MONITOR2=true
-    elif [ -z "$arg1" ] && [ -n "$arg2" ]; then
-        # Monitor 2 only: ['', url2]
-        SITE1="$DEFAULT_SITE"
-        SITE2="$arg2"
-        USE_MONITOR1=false
-        USE_MONITOR2=true
-    elif [ -n "$arg1" ] && [ -z "$arg2" ]; then
-        # Monitor 1 only: [url1]
-        SITE1="$arg1"
-        SITE2="$DEFAULT_SITE"
-        USE_MONITOR1=true
-        USE_MONITOR2=false
-    else
-        # No arguments: use defaults for both
-        SITE1="$DEFAULT_SITE"
-        SITE2="$DEFAULT_SITE"
-        USE_MONITOR1=true
-        USE_MONITOR2=true
-    fi
-}
-
-# Main execution
-main() {
-    log "Starting display script"
-    
-    # Parse arguments
-    parse_arguments "${1:-}" "${2:-}"
-    
-    # Disable mouse if configured
-    if [ "$MOUSE_DEV" != "YOUR_MOUSE_NAME" ]; then
-        xinput disable "$MOUSE_DEV" 2>/dev/null || log "Mouse '$MOUSE_DEV' not found or already disabled"
-    fi
-    
-    # Kill existing Chromium instances
-    log "Killing existing Chromium instances"
-    pkill -9 -f chromium 2>/dev/null || true
-    sleep 1
-    
-    # Fix crash states for all potential user data directories
-    local prefs_dirs=(
-        "${HOME}/.config/chromium-autodarts-monitor1/Default/Preferences"
-        "${HOME}/.config/chromium-autodarts-monitor2/Default/Preferences"
-        "${HOME}/.config/chromium-autodarts/Default/Preferences"
-        "${HOME}/.config/chromium/Default/Preferences"
-    )
-    
-    for prefs_file in "${prefs_dirs[@]}"; do
-        fix_chromium_crash_state "$prefs_file"
-    done
-    
-    # Find Chromium executable
-    CHROMIUM_CMD=$(find_chromium) || error_exit "Chromium not found. Please install Chromium."
-    log "Using Chromium: $CHROMIUM_CMD"
-    
-    # Detect connected monitors
-    local outputs
-    outputs=$(xrandr --query 2>/dev/null | grep " connected" | cut -d' ' -f1 || true)
-    local output_count
-    output_count=$(echo "$outputs" | grep -c . || echo "0")
-    
-    if [ "$output_count" -eq 2 ]; then
-        # Dual monitor setup
-        log "Detected 2 monitors"
-        
-        OUTPUT1=$(echo "$outputs" | head -n 1)
-        OUTPUT2=$(echo "$outputs" | tail -n 1)
-        
-        xrandr --output "$OUTPUT1" --primary >/dev/null 2>&1 || true
-        
-        # Get monitor information
-        local res1 res2 pos1 pos2 rot1 rot2
-        res1=$(get_monitor_info "$OUTPUT1" "resolution")
-        res2=$(get_monitor_info "$OUTPUT2" "resolution")
-        pos1=$(get_monitor_info "$OUTPUT1" "position")
-        pos2=$(get_monitor_info "$OUTPUT2" "position")
-        rot1=$(get_monitor_info "$OUTPUT1" "rotation")
-        rot2=$(get_monitor_info "$OUTPUT2" "rotation")
-        
-        # Extract positions
-        local x1 y1 x2 y2
-        x1=$(echo "$pos1" | sed 's/^+\([0-9]*\)+.*/\1/' 2>/dev/null || echo "0")
-        y1=$(echo "$pos1" | sed 's/^+[0-9]*+\([0-9]*\)/\1/' 2>/dev/null || echo "0")
-        x2=$(echo "$pos2" | sed 's/^+\([0-9]*\)+.*/\1/' 2>/dev/null || echo "0")
-        y2=$(echo "$pos2" | sed 's/^+[0-9]*+\([0-9]*\)/\1/' 2>/dev/null || echo "0")
-        
-        # Calculate dimensions with rotation
-        local dims1 dims2 width1 height1 width2 height2
-        dims1=$(calculate_dimensions "$res1" "$rot1")
-        dims2=$(calculate_dimensions "$res2" "$rot2")
-        width1=$(echo "$dims1" | cut -d'x' -f1)
-        height1=$(echo "$dims1" | cut -d'x' -f2)
-        width2=$(echo "$dims2" | cut -d'x' -f1)
-        height2=$(echo "$dims2" | cut -d'x' -f2)
-        
-        # Calculate X2 if not detected
-        if [ "$x2" = "0" ] && [ "$y2" = "0" ] && [ -n "$res1" ]; then
-            local monitor1_orig_width
-            monitor1_orig_width=$(echo "$res1" | cut -d'x' -f1)
-            local monitor1_orig_height
-            monitor1_orig_height=$(echo "$res1" | cut -d'x' -f2)
-            
-            if [ "$rot1" = "left" ] || [ "$rot1" = "right" ]; then
-                x2=$monitor1_orig_height
-            else
-                x2=$monitor1_orig_width
-            fi
-            y2=0
-        fi
-        
-        # Launch monitor 1 if requested
-        if [ "$USE_MONITOR1" = "true" ]; then
-            launch_chromium_monitor 1 "$SITE1" "$x1" "$y1" "$width1" "$height1" "$CHROMIUM_CMD"
-        fi
-        
-        # Launch monitor 2 if requested
-        if [ "$USE_MONITOR2" = "true" ]; then
-            sleep 2  # Stagger launches slightly
-            launch_chromium_monitor 2 "$SITE2" "$x2" "$y2" "$width2" "$height2" "$CHROMIUM_CMD"
-        fi
-        
-    else
-        # Single monitor setup
-        log "Detected 1 monitor"
-        
-        local single_site user_data_dir
-        if [ "$USE_MONITOR2" = "true" ] && [ "$USE_MONITOR1" = "false" ]; then
-            single_site="$SITE2"
-            user_data_dir="${HOME}/.config/chromium-autodarts-monitor2"
+        # After left rotation: width = original height
+        if [ "$ROT1_TEMP" = "left" ] || [ "$ROT1_TEMP" = "right" ]; then
+            MONITOR1_WIDTH=$MONITOR1_ORIG_HEIGHT
         else
-            single_site="$SITE1"
-            user_data_dir="${HOME}/.config/chromium-autodarts"
+            MONITOR1_WIDTH=$MONITOR1_ORIG_WIDTH
+        fi
+        X2=$MONITOR1_WIDTH
+        Y2=0
+    fi
+    
+    # Get rotation to determine actual dimensions
+    # Get the current rotation from the active line (the one with the resolution and position)
+    ROT1=$(xrandr --query | grep "^$OUTPUT1" | grep -oE '\s+(left|right|normal|inverted)\s+' | head -n 1 | tr -d ' ')
+    ROT2=$(xrandr --query | grep "^$OUTPUT2" | grep -oE '\s+(left|right|normal|inverted)\s+' | head -n 1 | tr -d ' ')
+    
+    # If not found in the main line, check if it's in the mode line
+    if [ -z "$ROT1" ]; then
+        ROT1=$(xrandr --query | grep -A 1 "^$OUTPUT1" | grep -E '\s+(left|right|normal|inverted)' | head -n 1 | grep -oE '(left|right|normal|inverted)' | head -n 1)
+    fi
+    if [ -z "$ROT2" ]; then
+        ROT2=$(xrandr --query | grep -A 1 "^$OUTPUT2" | grep -E '\s+(left|right|normal|inverted)' | head -n 1 | grep -oE '(left|right|normal|inverted)' | head -n 1)
+    fi
+    
+    # Default to normal if still not found
+    ROT1="${ROT1:-normal}"
+    ROT2="${ROT2:-normal}"
+    
+    MONITOR1_ORIG_WIDTH=$(echo "$RES1" | cut -d'x' -f1)
+    MONITOR1_ORIG_HEIGHT=$(echo "$RES1" | cut -d'x' -f2)
+    MONITOR2_ORIG_WIDTH=$(echo "$RES2" | cut -d'x' -f1)
+    MONITOR2_ORIG_HEIGHT=$(echo "$RES2" | cut -d'x' -f2)
+    
+    # Calculate dimensions after rotation
+    if [ "$ROT1" = "left" ] || [ "$ROT1" = "right" ]; then
+        MONITOR1_WIDTH=$MONITOR1_ORIG_HEIGHT
+        MONITOR1_HEIGHT=$MONITOR1_ORIG_WIDTH
+    else
+        MONITOR1_WIDTH=$MONITOR1_ORIG_WIDTH
+        MONITOR1_HEIGHT=$MONITOR1_ORIG_HEIGHT
+    fi
+    
+    if [ "$ROT2" = "left" ] || [ "$ROT2" = "right" ]; then
+        MONITOR2_WIDTH=$MONITOR2_ORIG_HEIGHT
+        MONITOR2_HEIGHT=$MONITOR2_ORIG_WIDTH
+    else
+        MONITOR2_WIDTH=$MONITOR2_ORIG_WIDTH
+        MONITOR2_HEIGHT=$MONITOR2_ORIG_HEIGHT
+    fi
+    
+        # Launch Chromium on monitor 1
+        USER_DATA_DIR1="$HOME/.config/chromium-autodarts-monitor1"
+        mkdir -p "$USER_DATA_DIR1"
+        
+        # Get list of existing Chromium windows before launching
+        if command -v xdotool >/dev/null 2>&1; then
+            EXISTING_WINDOWS=$(xdotool search --class chromium 2>/dev/null)
+        else
+            EXISTING_WINDOWS=""
         fi
         
-        mkdir -p "$user_data_dir"
-        fix_chromium_crash_state "${user_data_dir}/Default/Preferences"
-        
-        log "Launching Chromium for single monitor with URL: ${single_site:-default}"
-        
-        "$CHROMIUM_CMD" \
+        # Launch first Chromium instance
+        $CHROMIUM_CMD \
             --kiosk \
             --disable-session-crashed-bubble \
             --disable-breakpad \
-            --disable-infobars \
-            --disable-suggestions-ui \
-            --disable-translate \
-            --user-data-dir="$user_data_dir" \
-            "${single_site:-$DEFAULT_SITE}" \
-            >"${LOG_DIR}/chromium-single.log" 2>&1 &
+            --user-data-dir="$USER_DATA_DIR1" \
+            "$SITE1" \
+            &> /tmp/chromium-monitor1.log &
         
-        log "Single monitor Chromium launched (PID: $!)"
+        CHROMIUM_PID1=$!
+        
+        # Wait for first window to appear, then move it
+        sleep 4
+        
+        if command -v xdotool >/dev/null 2>&1; then
+            # Find the new window (one that wasn't in the existing list)
+            ALL_WINDOWS=$(xdotool search --class chromium 2>/dev/null)
+            for WINDOW_ID in $ALL_WINDOWS; do
+                if ! echo "$EXISTING_WINDOWS" | grep -q "^$WINDOW_ID$"; then
+                    # This is the new window for monitor 1
+                    xdotool windowmove $WINDOW_ID $X1 $Y1 2>/dev/null
+                    xdotool windowsize $WINDOW_ID $MONITOR1_WIDTH $MONITOR1_HEIGHT 2>/dev/null
+                    break
+                fi
+            done
+        fi
     fi
     
-    log "Display script completed successfully"
-}
-
-# Run main function
-main "$@"
+    # Launch monitor 2 if requested
+    if [ "$USE_MONITOR2" = true ]; then
+        # Launch Chromium on monitor 2
+        USER_DATA_DIR2="$HOME/.config/chromium-autodarts-monitor2"
+        mkdir -p "$USER_DATA_DIR2"
+        
+        # Get updated list of windows before launching second instance
+        if command -v xdotool >/dev/null 2>&1; then
+            EXISTING_WINDOWS=$(xdotool search --class chromium 2>/dev/null)
+        fi
+        
+        # Launch second instance
+        $CHROMIUM_CMD \
+            --kiosk \
+            --disable-session-crashed-bubble \
+            --disable-breakpad \
+            --user-data-dir="$USER_DATA_DIR2" \
+            "$SITE2" \
+            &> /tmp/chromium-monitor2.log &
+        
+        CHROMIUM_PID2=$!
+        
+        # Wait for second window to appear, then move it
+        sleep 4
+        
+        if command -v xdotool >/dev/null 2>&1; then
+            # Find the new window (one that wasn't in the existing list)
+            ALL_WINDOWS=$(xdotool search --class chromium 2>/dev/null)
+            for WINDOW_ID in $ALL_WINDOWS; do
+                if ! echo "$EXISTING_WINDOWS" | grep -q "^$WINDOW_ID$"; then
+                    # This is the new window for monitor 2
+                    xdotool windowmove $WINDOW_ID $X2 $Y2 2>/dev/null
+                    xdotool windowsize $WINDOW_ID $MONITOR2_WIDTH $MONITOR2_HEIGHT 2>/dev/null
+                    break
+                fi
+            done
+        else
+            echo "xdotool not found - windows may not be positioned correctly" >&2
+            echo "Install xdotool for proper multi-monitor support: sudo apt-get install xdotool" >&2
+        fi
+    fi
+else
+    # Single monitor - determine which site to use based on arguments
+    if [ "$USE_MONITOR2" = true ] && [ "$USE_MONITOR1" = false ]; then
+        # User wants monitor 2 only, but only one monitor is connected
+        # Use monitor 2's site
+        SINGLE_SITE="$SITE2"
+        USER_DATA_DIR="$HOME/.config/chromium-autodarts-monitor2"
+    else
+        # Use monitor 1's site (default)
+        SINGLE_SITE="$SITE1"
+        USER_DATA_DIR="$HOME/.config/chromium-autodarts"
+    fi
+    
+    mkdir -p "$USER_DATA_DIR"
+    
+    # Ensure preferences file exists and is fixed
+    PREFS_SINGLE="$USER_DATA_DIR/Default/Preferences"
+    if [ -f "$PREFS_SINGLE" ]; then
+        sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$PREFS_SINGLE" 2>/dev/null
+        sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$PREFS_SINGLE" 2>/dev/null
+    fi
+    
+    # Launch Chromium in kiosk mode for single monitor
+    $CHROMIUM_CMD \
+        --kiosk \
+        --disable-session-crashed-bubble \
+        --disable-breakpad \
+        --user-data-dir="$USER_DATA_DIR" \
+        "$SINGLE_SITE" \
+        &> /dev/null &
+fi
