@@ -151,15 +151,11 @@ def build_command(monitor, url1, url2):
         cmd.append('')  # Monitor 1 gets default
         cmd.append(url2 if url2 else (url1 if url1 else ''))
     else:  # both
-        # For both monitors with same URL (url2 is None), pass url1 once
-        # For both monitors with different URLs, pass both
+        cmd.append(url1 if url1 else '')
         if url2 is not None:
-            cmd.append(url1 if url1 else '')
             cmd.append(url2)
-        else:
-            # Both monitors same site - pass url1 once
-            # start.sh should interpret single URL as both monitors
-            cmd.append(url1 if url1 else '')
+        elif url1:
+            cmd.append(url1)
     
     return cmd
 
