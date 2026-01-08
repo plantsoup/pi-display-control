@@ -15,11 +15,14 @@ import uuid
 
 app = Flask(__name__)
 
+# Get the directory where app.py is located
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Configuration - support environment variables for Docker
 HOME_DIR = os.getenv('WORK_DIR', os.path.expanduser("~"))
-SCRIPT_PATH = os.getenv('SCRIPT_PATH', os.path.join(HOME_DIR, "start.sh"))
-BLANK_SCREEN_PATH = os.getenv('BLANK_SCREEN_PATH', os.path.join(HOME_DIR, "blank-screen.sh"))
-WAKE_SCREEN_PATH = os.getenv('WAKE_SCREEN_PATH', os.path.join(HOME_DIR, "wake-screen.sh"))
+SCRIPT_PATH = os.getenv('SCRIPT_PATH', os.path.join(APP_DIR, "start.sh"))
+BLANK_SCREEN_PATH = os.getenv('BLANK_SCREEN_PATH', os.path.join(APP_DIR, "blank-screen.sh"))
+WAKE_SCREEN_PATH = os.getenv('WAKE_SCREEN_PATH', os.path.join(APP_DIR, "wake-screen.sh"))
 CONFIG_FILE = os.getenv('CONFIG_FILE', "/data/websites.json")
 
 # Fallback to local config if /data doesn't exist (for local development)
@@ -165,7 +168,7 @@ def start_display():
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=HOME_DIR
+            cwd=APP_DIR
         )
         
         # Build success message
@@ -206,7 +209,7 @@ def stop_display():
             [BLANK_SCREEN_PATH],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=HOME_DIR
+            cwd=APP_DIR
         )
         
         return jsonify({
@@ -236,7 +239,7 @@ def wake_display():
             [WAKE_SCREEN_PATH],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=HOME_DIR
+            cwd=APP_DIR
         )
         
         return jsonify({

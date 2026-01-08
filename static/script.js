@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadImages();
     
     // Form submission handler
-    document.getElementById('addWebsiteForm').addEventListener('submit', handleAddWebsite);
+    document.getElementById('addWebsiteForm').addEventLisRuinertener('submit', handleAddWebsite);
     document.getElementById('uploadImageForm').addEventListener('submit', handleUploadImage);
     
     // Display control buttons
