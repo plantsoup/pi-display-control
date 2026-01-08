@@ -47,6 +47,31 @@
                     <button type="submit" class="btn btn-primary">Add Website</button>
                 </form>
             </section>
+
+            <!-- Uploaded Images Section -->
+            <section class="control-section">
+                <h2>Uploaded Images</h2>
+                <div id="imageList" class="image-list">
+                    <!-- Images will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Upload Image Section -->
+            <section class="control-section">
+                <h2>Upload New Image</h2>
+                <form id="uploadImageForm" class="add-form">
+                    <div class="form-group">
+                        <label for="imageName">Image Name:</label>
+                        <input type="text" id="imageName" placeholder="e.g., My Photo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="imageFile">Select Image:</label>
+                        <input type="file" id="imageFile" accept="image/*" required>
+                        <small class="form-hint">Supported formats: PNG, JPG, JPEG, GIF, BMP, WEBP</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload Image</button>
+                </form>
+            </section>
         </div>
 
         <!-- Status Messages -->

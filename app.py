@@ -4,11 +4,14 @@ Raspberry Pi Display Control Interface
 Web-based control panel for managing display scripts
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 import subprocess
 import json
 import os
 from pathlib import Path
+from datetime import datetime
+import uuid
 
 app = Flask(__name__)
 
@@ -22,6 +25,14 @@ CONFIG_FILE = os.getenv('CONFIG_FILE', "/data/websites.json")
 # Fallback to local config if /data doesn't exist (for local development)
 if not os.path.exists('/data') and CONFIG_FILE.startswith('/data'):
     CONFIG_FILE = "websites.json"
+
+# Image upload configuration
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(os.path.dirname(CONFIG_FILE), 'uploads', 'images'))
+IMAGES_CONFIG_FILE = os.getenv('IMAGES_CONFIG_FILE', os.path.join(os.path.dirname(CONFIG_FILE), 'images.json'))
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def load_websites():
     """Load the list of websites from config file"""
@@ -41,6 +52,23 @@ def save_websites(websites):
     """Save the list of websites to config file"""
     with open(CONFIG_FILE, 'w') as f:
         json.dump(websites, f, indent=2)
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def load_images():
+    """Load the list of uploaded images from config file"""
+    if os.path.exists(IMAGES_CONFIG_FILE):
+        with open(IMAGES_CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    else:
+        return []
+
+def save_images(images):
+    """Save the list of images to config file"""
+    with open(IMAGES_CONFIG_FILE, 'w') as f:
+        json.dump(images, f, indent=2)
 
 @app.route('/')
 def index():
@@ -81,12 +109,21 @@ def delete_website(index):
 
 @app.route('/api/display', methods=['POST'])
 def start_display():
-    """Start the display script with URL(s) for monitor(s)"""
+    """Start the display script with URL(s) or image path(s) for monitor(s)"""
     data = request.json
     url = data.get('url', '')  # For backward compatibility
     url1 = data.get('url1', url)  # Monitor 1 URL
     url2 = data.get('url2', None)  # Monitor 2 URL (optional)
+    image1 = data.get('image1', None)  # Monitor 1 image filename
+    image2 = data.get('image2', None)  # Monitor 2 image filename
     monitor = data.get('monitor', 'both')  # '1', '2', or 'both'
+    
+    # If images are provided, use file:// protocol for local images
+    # Images take precedence over URLs if both are provided
+    if image1:
+        url1 = f"file://{os.path.join(UPLOAD_FOLDER, image1)}"
+    if image2:
+        url2 = f"file://{os.path.join(UPLOAD_FOLDER, image2)}"
     
     # Build the command based on monitor selection
     cmd = [SCRIPT_PATH]
@@ -132,15 +169,15 @@ def start_display():
         )
         
         # Build success message
+        display_name1 = image1 if image1 else (url1 if url1 else 'default (Autodarts)')
+        display_name2 = image2 if image2 else (url2 if url2 else display_name1)
+        
         if monitor == '1':
-            message = f"Started display on Monitor 1 with: {url1 if url1 else 'default (Autodarts)'}"
+            message = f"Started display on Monitor 1 with: {display_name1}"
         elif monitor == '2':
-            display_url = url2 if url2 else (url1 if url1 else 'default (Autodarts)')
-            message = f"Started display on Monitor 2 with: {display_url}"
+            message = f"Started display on Monitor 2 with: {display_name2}"
         else:
-            msg1 = url1 if url1 else 'default (Autodarts)'
-            msg2 = url2 if url2 else msg1
-            message = f"Started display on both monitors - Monitor 1: {msg1}, Monitor 2: {msg2}"
+            message = f"Started display on both monitors - Monitor 1: {display_name1}, Monitor 2: {display_name2}"
         
         return jsonify({
             "success": True,
@@ -213,6 +250,74 @@ def wake_display():
             "error": str(e)
         }), 500
 
+@app.route('/api/images', methods=['GET'])
+def get_images():
+    """Get the list of uploaded images"""
+    return jsonify(load_images())
+
+@app.route('/api/images', methods=['POST'])
+def upload_image():
+    """Upload a new image"""
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file provided"}), 400
+    
+    file = request.files['file']
+    name = request.form.get('name', '').strip()
+    
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No file selected"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "error": "File type not allowed. Allowed types: " + ", ".join(ALLOWED_EXTENSIONS)}), 400
+    
+    if file:
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        name_part, ext = os.path.splitext(filename)
+        unique_filename = f"{name_part}_{uuid.uuid4().hex[:8]}{ext}"
+        filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
+        
+        # Save file
+        file.save(filepath)
+        
+        # Add to images list
+        images = load_images()
+        image_name = name if name else name_part
+        new_image = {
+            "id": str(uuid.uuid4()),
+            "name": image_name,
+            "filename": unique_filename,
+            "original_filename": filename,
+            "uploaded_at": datetime.now().isoformat()
+        }
+        images.append(new_image)
+        save_images(images)
+        
+        return jsonify({"success": True, "images": images, "image": new_image})
+    
+    return jsonify({"success": False, "error": "Upload failed"}), 500
+
+@app.route('/api/images/<int:index>', methods=['DELETE'])
+def delete_image(index):
+    """Delete an image by index"""
+    images = load_images()
+    if 0 <= index < len(images):
+        image = images[index]
+        # Delete the file
+        filepath = os.path.join(UPLOAD_FOLDER, image['filename'])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        # Remove from list
+        images.pop(index)
+        save_images(images)
+        return jsonify({"success": True, "images": images})
+    return jsonify({"success": False, "error": "Invalid index"}), 400
+
+@app.route('/api/images/<filename>')
+def serve_image(filename):
+    """Serve uploaded images"""
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 if __name__ == '__main__':
     # Create templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)
@@ -223,6 +328,14 @@ if __name__ == '__main__':
     if config_dir and not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
     
+    # Ensure upload directory exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    
+    # Ensure images config directory exists
+    images_config_dir = os.path.dirname(IMAGES_CONFIG_FILE)
+    if images_config_dir and not os.path.exists(images_config_dir):
+        os.makedirs(images_config_dir, exist_ok=True)
+    
     # Get port from environment or default to 5000
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'production') != 'production'
@@ -232,6 +345,8 @@ if __name__ == '__main__':
     print(f"Blank screen path: {BLANK_SCREEN_PATH}")
     print(f"Wake screen path: {WAKE_SCREEN_PATH}")
     print(f"Config file: {CONFIG_FILE}")
+    print(f"Images config file: {IMAGES_CONFIG_FILE}")
+    print(f"Upload folder: {UPLOAD_FOLDER}")
     print(f"Access the control panel at: http://0.0.0.0:{port}")
     app.run(host='0.0.0.0', port=port, debug=debug)
 
