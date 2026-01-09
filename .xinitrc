@@ -1,13 +1,23 @@
+
 #!/bin/sh
 
-# Test script for xinitrc functionality without rebooting
-# This runs the monitor detection and Chromium launching parts
+# xinitrc for Raspberry Pi - Display play.autodarts.io
+# Supports 1 or 2 monitors with separate Chromium instances
+# Designed for headless operation with VNC
 
 # Set display environment
 export DISPLAY=:0
 
-# Wait for network to be ready (shorter wait for testing)
-sleep 1
+# Start window manager (optional, but useful for VNC)
+# Using openbox for lightweight window management
+if command -v openbox >/dev/null 2>&1; then
+    openbox &
+elif command -v fluxbox >/dev/null 2>&1; then
+    fluxbox &
+fi
+
+# Wait for network to be ready
+sleep 3
 
 # Detect connected monitors and configure them
 if command -v xrandr >/dev/null 2>&1; then
@@ -15,15 +25,10 @@ if command -v xrandr >/dev/null 2>&1; then
     OUTPUTS=$(xrandr --query | grep " connected" | cut -d' ' -f1)
     OUTPUT_COUNT=$(echo "$OUTPUTS" | wc -l)
     
-    echo "Detected $OUTPUT_COUNT monitor(s)"
-    
     if [ "$OUTPUT_COUNT" -eq 2 ]; then
         # Two monitors detected - configure as separate displays (not extended)
         OUTPUT1=$(echo "$OUTPUTS" | head -n 1)
         OUTPUT2=$(echo "$OUTPUTS" | tail -n 1)
-        
-        echo "Monitor 1: $OUTPUT1"
-        echo "Monitor 2: $OUTPUT2"
         
         # Get preferred/current resolutions for both outputs (look for * indicating active mode)
         RES1=$(xrandr --query | grep -A 10 "^$OUTPUT1" | grep -E "^\s+[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
@@ -37,12 +42,8 @@ if command -v xrandr >/dev/null 2>&1; then
             RES2=$(xrandr --query | grep -A 10 "^$OUTPUT2" | grep -E "[0-9]+x[0-9]+" | head -n 1 | awk '{print $1}')
         fi
         
-        echo "Monitor 1 resolution: $RES1"
-        echo "Monitor 2 resolution: $RES2"
-        
         # Configure both monitors as separate (side-by-side, not extended)
         # Set OUTPUT1 as primary at position 0,0, rotated left
-        echo "Configuring monitor 1..."
         xrandr --output "$OUTPUT1" --primary --mode "$RES1" --pos 0x0 --rotate left
         
         # Get the height of OUTPUT1 after rotation (width becomes height when rotated)
@@ -53,7 +54,6 @@ if command -v xrandr >/dev/null 2>&1; then
         MONITOR1_ROTATED_WIDTH=$MONITOR1_ORIG_HEIGHT
         
         # Set OUTPUT2 at position to the right of OUTPUT1, rotated left
-        echo "Configuring monitor 2..."
         xrandr --output "$OUTPUT2" --mode "$RES2" --pos "${MONITOR1_ROTATED_WIDTH}x0" --rotate left
         
         sleep 2
@@ -79,22 +79,13 @@ if command -v xrandr >/dev/null 2>&1; then
             MONITOR2_WIDTH=$MONITOR2_ORIG_HEIGHT
             MONITOR2_HEIGHT=$MONITOR2_ORIG_WIDTH
             
-            echo "Monitor 1 dimensions after rotation: ${MONITOR1_WIDTH}x${MONITOR1_HEIGHT}"
-            echo "Monitor 2 dimensions after rotation: ${MONITOR2_WIDTH}x${MONITOR2_HEIGHT}"
-            
             USER_DATA_DIR1="$HOME/.config/chromium-autodarts-monitor1"
             mkdir -p "$USER_DATA_DIR1"
             
             USER_DATA_DIR2="$HOME/.config/chromium-autodarts-monitor2"
             mkdir -p "$USER_DATA_DIR2"
             
-            # Kill any existing Chromium instances first
-            echo "Killing existing Chromium instances..."
-            pkill -9 -f chromium 2>/dev/null
-            sleep 1
-            
             # Launch Chromium on monitor 1 (default site)
-            echo "Launching Chromium on monitor 1..."
             $CHROMIUM_CMD \
                 --window-position=0,0 \
                 --window-size="$MONITOR1_WIDTH,$MONITOR1_HEIGHT" \
@@ -106,7 +97,6 @@ if command -v xrandr >/dev/null 2>&1; then
             sleep 1
             
             # Launch Chromium on monitor 2 (default site - can be customized)
-            echo "Launching Chromium on monitor 2..."
             $CHROMIUM_CMD \
                 --window-position="$MONITOR1_WIDTH,0" \
                 --window-size="$MONITOR2_WIDTH,$MONITOR2_HEIGHT" \
@@ -114,8 +104,6 @@ if command -v xrandr >/dev/null 2>&1; then
                 --disable-dev-shm-usage \
                 --user-data-dir="$USER_DATA_DIR2" \
                 https://play.autodarts.io &
-            
-            echo "Done! Chromium instances should be running on both monitors."
         elif command -v firefox >/dev/null 2>&1; then
             firefox https://play.autodarts.io &
         else
@@ -124,7 +112,6 @@ if command -v xrandr >/dev/null 2>&1; then
     else
         # Single monitor - original behavior
         OUTPUT=$(echo "$OUTPUTS" | head -n 1)
-        echo "Single monitor detected: $OUTPUT"
         if [ -n "$OUTPUT" ]; then
             xrandr --output "$OUTPUT" --rotate left
             sleep 1
@@ -135,9 +122,6 @@ if command -v xrandr >/dev/null 2>&1; then
             USER_DATA_DIR="$HOME/.config/chromium-autodarts"
             mkdir -p "$USER_DATA_DIR"
             
-            pkill -9 -f chromium 2>/dev/null
-            sleep 1
-            
             chromium-browser \
                 --start-maximized \
                 --disable-dev-shm-usage \
@@ -146,9 +130,6 @@ if command -v xrandr >/dev/null 2>&1; then
         elif command -v chromium >/dev/null 2>&1; then
             USER_DATA_DIR="$HOME/.config/chromium-autodarts"
             mkdir -p "$USER_DATA_DIR"
-            
-            pkill -9 -f chromium 2>/dev/null
-            sleep 1
             
             chromium \
                 --start-maximized \
@@ -161,7 +142,7 @@ if command -v xrandr >/dev/null 2>&1; then
             xdg-open https://play.autodarts.io &
         fi
     fi
-else
-    echo "xrandr not found!"
 fi
 
+# Keep the session running
+wait
