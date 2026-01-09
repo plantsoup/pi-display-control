@@ -9,7 +9,7 @@ export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
 #   Monitor 1 only: [url1]
 #   Monitor 2 only: ['', url2]
 #   Both monitors: [url1, url2]
-DEFAULT_SITE="https://play.autodarts.io/boards/62f17919-bbb2-443b-bf0e-a5d6e27c7898/follow"
+DEFAULT_SITE="https://spot.spear.ac"
 
 # Parse arguments
 ARG1="${1:-}"
@@ -41,12 +41,6 @@ else
     USE_MONITOR1=true
     USE_MONITOR2=true
 fi
-
-# Mouse device name (set this correctly)
-MOUSE_DEV="YOUR_MOUSE_NAME"   # e.g. "USB Optical Mouse"
-
-# Disable mouse if present
-xinput disable "$MOUSE_DEV" 2>/dev/null || echo "Mouse not found or already disabled" >&2
 
 # Kill any existing Chromium instances
 pkill -9 -f chromium
