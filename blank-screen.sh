@@ -2,7 +2,7 @@
 
 # X display setup
 export DISPLAY=:0
-export XAUTHORITY=/home/gavinspear/.Xauthority
+export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
 
 # Kill Chromium first (it might be keeping the displays on)
 pkill -9 -f chromium

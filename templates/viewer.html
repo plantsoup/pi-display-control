@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #ffffff;
+            cursor: none; /* Hide cursor for clean kiosk presentation */
+        }
+
+        /* Show cursor on hover if mouse is actively moved */
+        body.show-cursor {
+            cursor: default;
+        }
+
+        #stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000000;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-size: contain;
+            opacity: 0;
+            transition: opacity 1.2s ease-in-out, transform 1.2s ease-in-out;
+            will-change: opacity, transform;
+        }
+
+        .slide.fit-cover {
+            background-size: cover;
+        }
+
+        .slide.active {
+            opacity: 1;
+            z-index: 2;
+        }
+
+        .slide.previous {
+            opacity: 0;
+            z-index: 1;
+        }
+
+        /* Slide Transition Variation */
+        .transition-slide .slide {
+            transform: translateX(100%);
+            transition: transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.8s ease;
+        }
+        .transition-slide .slide.active {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .transition-slide .slide.previous {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+
+        /* Instant Transition */
+        .transition-instant .slide {
+            transition: none !important;
+        }
+
+        /* Minimal Kiosk Overlay on interaction */
+        #infoOverlay {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        #infoOverlay.visible {
+            opacity: 1;
+        }
+
+        #emptyState {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        #emptyState h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #888;
+        }
+
+        #emptyState p {
+            font-size: 16px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="stage">
+        <div id="slideA" class="slide active"></div>
+        <div id="slideB" class="slide"></div>
+        <div id="emptyState" style="display: none;">
+            <h2>No Images Available</h2>
+            <p>Upload images from the Pi Display Control dashboard to start the slideshow.</p>
+        </div>
+    </div>
+
+    <div id="infoOverlay">
+        <span id="infoTitle">Display Viewer</span> &bull; <span id="infoCount">0/0</span>
+    </div>
+
+    <script>
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const singleImage = urlParams.get('single');
+        const paramMode = urlParams.get('mode');
+        const paramInterval = urlParams.get('interval');
+        const monitorTarget = urlParams.get('monitor') || 'both';
+
+        let images = [];
+        let config = {
+            mode: paramMode || 'random',
+            interval: parseInt(paramInterval) || 30,
+            transition: 'fade',
+            fit: 'contain'
+        };
+
+        let playlist = [];
+        let currentIndex = 0;
+        let timer = null;
+        let activeSlideIsA = true;
+        let cursorTimer = null;
+
+        const stage = document.getElementById('stage');
+        const slideA = document.getElementById('slideA');
+        const slideB = document.getElementById('slideB');
+        const emptyState = document.getElementById('emptyState');
+        const infoOverlay = document.getElementById('infoOverlay');
+        const infoTitle = document.getElementById('infoTitle');
+        const infoCount = document.getElementById('infoCount');
+
+        // Mouse activity indicator
+        window.addEventListener('mousemove', () => {
+            document.body.classList.add('show-cursor');
+            infoOverlay.classList.add('visible');
+            clearTimeout(cursorTimer);
+            cursorTimer = setTimeout(() => {
+                document.body.classList.remove('show-cursor');
+                infoOverlay.classList.remove('visible');
+            }, 3000);
+        });
+
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'f' || e.key === 'F') {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+        });
+
+        // Initialize display
+        async function init() {
+            if (singleImage) {
+                // Show single static image
+                showSingleImage(`/api/images/${singleImage}`);
+                return;
+            }
+
+            await fetchViewerData();
+            startSlideshow();
+
+            // Poll for updates every 25 seconds
+            setInterval(fetchViewerData, 25000);
+        }
+
+        function showSingleImage(url) {
+            slideA.style.backgroundImage = `url("${url}")`;
+            slideA.className = 'slide active fit-contain';
+            infoTitle.textContent = singleImage;
+            infoCount.textContent = 'Single Image';
+        }
+
+        async function fetchViewerData() {
+            try {
+                const res = await fetch('/api/viewer/data');
+                const data = await res.json();
+                if (data.success && data.images) {
+                    const prevCount = images.length;
+                    images = data.images;
+
+                    // Apply server config unless overridden by query params
+                    if (!paramMode && data.config.mode) config.mode = data.config.mode;
+                    if (!paramInterval && data.config.interval) config.interval = data.config.interval;
+                    if (data.config.transition) config.transition = data.config.transition;
+                    if (data.config.fit) config.fit = data.config.fit;
+
+                    applyTransitionClass();
+
+                    // Rebuild playlist if images changed or playlist empty
+                    if (playlist.length === 0 || prevCount !== images.length) {
+                        buildPlaylist();
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching viewer data:', err);
+            }
+        }
+
+        function applyTransitionClass() {
+            stage.className = '';
+            if (config.transition === 'slide') {
+                stage.classList.add('transition-slide');
+            } else if (config.transition === 'instant') {
+                stage.classList.add('transition-instant');
+            }
+        }
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function buildPlaylist() {
+            if (images.length === 0) {
+                emptyState.style.display = 'flex';
+                slideA.style.opacity = '0';
+                slideB.style.opacity = '0';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            if (config.mode === 'random') {
+                playlist = shuffleArray(images);
+            } else {
+                playlist = [...images];
+            }
+            currentIndex = 0;
+            renderCurrentSlide();
+        }
+
+        function renderCurrentSlide() {
+            if (playlist.length === 0) return;
+
+            const currentImage = playlist[currentIndex];
+            const incomingSlide = activeSlideIsA ? slideB : slideA;
+            const outgoingSlide = activeSlideIsA ? slideA : slideB;
+
+            const fitClass = config.fit === 'cover' ? 'fit-cover' : 'fit-contain';
+
+            // Preload image before switching
+            const img = new Image();
+            img.onload = () => {
+                incomingSlide.style.backgroundImage = `url("${currentImage.url}")`;
+                incomingSlide.className = `slide active ${fitClass}`;
+                outgoingSlide.className = `slide previous ${fitClass}`;
+
+                activeSlideIsA = !activeSlideIsA;
+
+                infoTitle.textContent = currentImage.name || 'Image';
+                infoCount.textContent = `${currentIndex + 1}/${playlist.length} (${config.mode})`;
+            };
+            img.src = currentImage.url;
+        }
+
+        function nextSlide() {
+            if (playlist.length <= 1) return;
+            currentIndex++;
+            if (currentIndex >= playlist.length) {
+                if (config.mode === 'random') {
+                    playlist = shuffleArray(images);
+                }
+                currentIndex = 0;
+            }
+            renderCurrentSlide();
+            resetTimer();
+        }
+
+        function prevSlide() {
+            if (playlist.length <= 1) return;
+            currentIndex--;
+            if (currentIndex < 0) {
+                currentIndex = playlist.length - 1;
+            }
+            renderCurrentSlide();
+            resetTimer();
+        }
+
+        function startSlideshow() {
+            resetTimer();
+        }
+
+        function resetTimer() {
+            if (timer) clearInterval(timer);
+            const intervalMs = Math.max(3000, (config.interval || 30) * 1000);
+            timer = setInterval(() => {
+                nextSlide();
+            }, intervalMs);
+        }
+
+        // Start initialization
+        init();
+    </script>
+</body>
+</html>

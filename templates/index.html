@@ -3,82 +3,337 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pi Display Control</title>
+    <title>Pi Display Control & Image Studio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🖥️ Pi Display Control</h1>
-            <p class="subtitle">Manage your display scripts and websites</p>
+    <div class="app-layout">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-icon">🖥️</div>
+                <div class="brand-info">
+                    <h1>Pi Display Control</h1>
+                    <p class="subtitle">Multi-Monitor Display, Image Slideshow & Automation Engine</p>
+                </div>
+            </div>
+
+            <!-- Live Status & Quick Actions -->
+            <div class="header-status-panel">
+                <div class="status-indicator-badge" id="liveStatusBadge">
+                    <span class="status-dot"></span>
+                    <span id="liveStatusText">Checking status...</span>
+                </div>
+                <div class="header-quick-actions">
+                    <button id="wakeDisplay" class="btn btn-sm btn-success" title="Turn screen on">
+                        <span class="icon">☀️</span> Wake Screen
+                    </button>
+                    <button id="stopDisplay" class="btn btn-sm btn-danger" title="Turn screen off">
+                        <span class="icon">🌙</span> Blank Screen
+                    </button>
+                    <a href="/viewer" target="_blank" class="btn btn-sm btn-outline" title="Open Slideshow Viewer in a new browser tab">
+                        <span class="icon">↗</span> Open Viewer
+                    </a>
+                </div>
+            </div>
         </header>
 
-        <div class="main-content">
-            <!-- Display Control Section -->
-            <section class="control-section">
-                <h2>Display Controls</h2>
-                <div class="button-group">
-                    <button id="wakeDisplay" class="btn btn-success">Wake Screen</button>
-                    <button id="stopDisplay" class="btn btn-danger">Blank Screen</button>
+        <!-- Navigation Tabs Bar -->
+        <nav class="tab-navigation">
+            <button class="nav-tab active" data-tab="imagesTab">
+                <span class="tab-icon">🖼️</span>
+                <span>Image Slideshow & Studio</span>
+                <span class="counter-badge" id="imageCountBadge">0</span>
+            </button>
+            <button class="nav-tab" data-tab="websitesTab">
+                <span class="tab-icon">🌐</span>
+                <span>Websites & Darts</span>
+                <span class="counter-badge" id="websiteCountBadge">0</span>
+            </button>
+            <button class="nav-tab" data-tab="schedulesTab">
+                <span class="tab-icon">⏰</span>
+                <span>Time Scheduler</span>
+                <span class="counter-badge" id="scheduleCountBadge">0</span>
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-container">
+            <!-- ========================================================= -->
+            <!-- TAB 1: Image Slideshow & Studio -->
+            <!-- ========================================================= -->
+            <section id="imagesTab" class="tab-content active">
+                <!-- Slideshow Control Console Card -->
+                <div class="card control-console-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <h2>✨ Slideshow Studio Controller</h2>
+                            <p>Configure randomize mode, timing intervals, and launch directly to Raspberry Pi monitors</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="slideshow-settings-grid">
+                            <!-- Randomize / Sequential Switch -->
+                            <div class="setting-item">
+                                <label class="setting-label">Playback Order</label>
+                                <div class="segmented-control">
+                                    <button type="button" class="segment-btn active" id="modeRandomBtn" onclick="setSlideshowMode('random')">
+                                        🔀 Random (Shuffle)
+                                    </button>
+                                    <button type="button" class="segment-btn" id="modeSequentialBtn" onclick="setSlideshowMode('sequential')">
+                                        🔁 Sequential
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Interval Selector -->
+                            <div class="setting-item">
+                                <label class="setting-label" for="slideshowInterval">Change Every</label>
+                                <div class="interval-picker">
+                                    <select id="slideshowInterval" class="form-select" onchange="updateSlideshowSetting('interval', this.value)">
+                                        <option value="5">5 seconds</option>
+                                        <option value="10">10 seconds</option>
+                                        <option value="20">20 seconds</option>
+                                        <option value="30" selected>30 seconds</option>
+                                        <option value="60">1 minute</option>
+                                        <option value="300">5 minutes</option>
+                                        <option value="600">10 minutes</option>
+                                        <option value="1800">30 minutes</option>
+                                        <option value="3600">1 hour</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Image Fit Mode -->
+                            <div class="setting-item">
+                                <label class="setting-label" for="slideshowFit">Image Fit</label>
+                                <select id="slideshowFit" class="form-select" onchange="updateSlideshowSetting('fit', this.value)">
+                                    <option value="contain" selected>Contain (Preserve Full Aspect Ratio)</option>
+                                    <option value="cover">Cover (Fill Entire Screen)</option>
+                                </select>
+                            </div>
+
+                            <!-- Transition Style -->
+                            <div class="setting-item">
+                                <label class="setting-label" for="slideshowTransition">Transition Style</label>
+                                <select id="slideshowTransition" class="form-select" onchange="updateSlideshowSetting('transition', this.value)">
+                                    <option value="fade" selected>Smooth Crossfade</option>
+                                    <option value="slide">Slide In</option>
+                                    <option value="instant">Instant Cut</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Big Action Launcher Banner -->
+                        <div class="slideshow-launch-bar">
+                            <div class="launch-desc">
+                                <strong>Start Slideshow Now:</strong>
+                                <span id="slideshowSummaryText">Random shuffle every 30s</span>
+                            </div>
+                            <div class="launch-button-group">
+                                <button class="btn btn-primary" onclick="launchSlideshow('both')">
+                                    🚀 Both Monitors
+                                </button>
+                                <button class="btn btn-secondary" onclick="launchSlideshow('1')">
+                                    🖥️ Monitor 1
+                                </button>
+                                <button class="btn btn-secondary" onclick="launchSlideshow('2')">
+                                    🖥️ Monitor 2
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Management Grid & Upload -->
+                <div class="split-columns">
+                    <!-- Left: Upload Box -->
+                    <div class="card upload-card">
+                        <div class="card-header">
+                            <h3>📤 Upload New Image</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="uploadImageForm" class="custom-form">
+                                <div class="form-group">
+                                    <label for="imageName">Image Title</label>
+                                    <input type="text" id="imageName" class="form-input" placeholder="e.g., Summer Sunset, Sponsor Logo" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="imageFile">Select File</label>
+                                    <input type="file" id="imageFile" class="form-input-file" accept="image/*" required>
+                                    <small class="form-hint">Supports PNG, JPG, JPEG, GIF, WEBP, SVG</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block" id="uploadSubmitBtn">
+                                    Upload Image
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Right: Gallery -->
+                    <div class="card gallery-card">
+                        <div class="card-header flex-between">
+                            <div class="header-left">
+                                <h3>🖼️ Uploaded Library</h3>
+                                <p class="card-subtext">Click any image to show individually or configure selection</p>
+                            </div>
+                            <div class="header-actions">
+                                <button class="btn btn-xs btn-outline" onclick="selectAllImages(true)">Select All</button>
+                                <button class="btn btn-xs btn-outline" onclick="selectAllImages(false)">Clear Selection</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="imageList" class="image-grid">
+                                <!-- Images injected dynamically -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Website List Section -->
-            <section class="control-section">
-                <h2>Saved Websites</h2>
-                <div id="websiteList" class="website-list">
-                    <!-- Websites will be loaded here -->
+            <!-- ========================================================= -->
+            <!-- TAB 2: Websites & Autodarts -->
+            <!-- ========================================================= -->
+            <section id="websitesTab" class="tab-content">
+                <div class="split-columns">
+                    <!-- Website List -->
+                    <div class="card websites-main-card">
+                        <div class="card-header">
+                            <h3>🌐 Saved Websites</h3>
+                            <p class="card-subtext">Quickly switch monitor displays to Autodarts or any web URL</p>
+                        </div>
+                        <div class="card-body">
+                            <div id="websiteList" class="website-grid">
+                                <!-- Websites loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Website Card -->
+                    <div class="card add-website-card">
+                        <div class="card-header">
+                            <h3>➕ Add Website</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="addWebsiteForm" class="custom-form">
+                                <div class="form-group">
+                                    <label for="websiteName">Site Name</label>
+                                    <input type="text" id="websiteName" class="form-input" placeholder="e.g., Autodarts, Scoreboard, Twitch" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="websiteUrl">URL Address</label>
+                                    <input type="url" id="websiteUrl" class="form-input" placeholder="https://example.com">
+                                    <small class="form-hint">Leave blank to use default Autodarts board</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    Save Website
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Add Website Section -->
-            <section class="control-section">
-                <h2>Add New Website</h2>
-                <form id="addWebsiteForm" class="add-form">
-                    <div class="form-group">
-                        <label for="websiteName">Website Name:</label>
-                        <input type="text" id="websiteName" placeholder="e.g., My Dashboard" required>
+            <!-- ========================================================= -->
+            <!-- TAB 3: Time-based Scheduler -->
+            <!-- ========================================================= -->
+            <section id="schedulesTab" class="tab-content">
+                <div class="card scheduler-intro-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h2>⏰ Automated Time Scheduler</h2>
+                            <p>Automatically change displays, randomize images, or sleep/wake screens at designated times of the day</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddScheduleModal()">
+                            ➕ New Schedule
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <label for="websiteUrl">Website URL:</label>
-                        <input type="url" id="websiteUrl" placeholder="https://example.com" required>
-                        <small class="form-hint">Leave empty for default (Autodarts)</small>
+                    <div class="card-body">
+                        <div id="schedulesList" class="schedules-container">
+                            <!-- Schedules rendered dynamically -->
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Add Website</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Dynamic Status Toast Notifications -->
+        <div id="statusMessage" class="toast-notification"></div>
+
+        <!-- Schedule Creation Modal -->
+        <div id="scheduleModal" class="modal-overlay" style="display: none;">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3>Create Scheduled Display Action</h3>
+                    <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
+                </div>
+                <form id="createScheduleForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="scheduleName">Schedule Name</label>
+                            <input type="text" id="scheduleName" class="form-input" placeholder="e.g., Evening Slideshow, Morning Autodarts" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduleTime">Time of Day (24h)</label>
+                            <input type="time" id="scheduleTime" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduleAction">Action to Trigger</label>
+                            <select id="scheduleAction" class="form-select" onchange="onScheduleActionChange()">
+                                <option value="slideshow">Start Image Slideshow (Randomize / Timed)</option>
+                                <option value="website">Open Saved Website / Autodarts</option>
+                                <option value="blank">Blank Display (Turn Off Screens)</option>
+                                <option value="wake">Wake Display (Turn On Screens)</option>
+                            </select>
+                        </div>
+
+                        <div id="scheduleMonitorGroup" class="form-group">
+                            <label for="scheduleMonitor">Target Monitor(s)</label>
+                            <select id="scheduleMonitor" class="form-select">
+                                <option value="both">Both Monitors</option>
+                                <option value="1">Monitor 1 Only</option>
+                                <option value="2">Monitor 2 Only</option>
+                            </select>
+                        </div>
+
+                        <div id="scheduleSlideshowOptions">
+                            <div class="form-group">
+                                <label for="scheduleSlideshowMode">Slideshow Mode</label>
+                                <select id="scheduleSlideshowMode" class="form-select">
+                                    <option value="random">Random (Shuffle)</option>
+                                    <option value="sequential">Sequential</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleSlideshowInterval">Rotation Interval (Seconds)</label>
+                                <input type="number" id="scheduleSlideshowInterval" class="form-input" min="5" value="30">
+                            </div>
+                        </div>
+
+                        <div id="scheduleWebsiteOptions" style="display: none;">
+                            <div class="form-group">
+                                <label for="scheduleWebsitePicker">Select Website</label>
+                                <select id="scheduleWebsitePicker" class="form-select">
+                                    <!-- Injected from websites list -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancel</button>
+                        <button type="submit" class="btn btn-success">Save Schedule</button>
+                    </div>
                 </form>
-            </section>
-
-            <!-- Uploaded Images Section -->
-            <section class="control-section">
-                <h2>Uploaded Images</h2>
-                <div id="imageList" class="image-list">
-                    <!-- Images will be loaded here -->
-                </div>
-            </section>
-
-            <!-- Upload Image Section -->
-            <section class="control-section">
-                <h2>Upload New Image</h2>
-                <form id="uploadImageForm" class="add-form">
-                    <div class="form-group">
-                        <label for="imageName">Image Name:</label>
-                        <input type="text" id="imageName" placeholder="e.g., My Photo" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="imageFile">Select Image:</label>
-                        <input type="file" id="imageFile" accept="image/*" required>
-                        <small class="form-hint">Supported formats: PNG, JPG, JPEG, GIF, BMP, WEBP</small>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Upload Image</button>
-                </form>
-            </section>
+            </div>
         </div>
-
-        <!-- Status Messages -->
-        <div id="statusMessage" class="status-message"></div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
-

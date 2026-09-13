@@ -1,35 +1,396 @@
-// API base URL
-const API_BASE = '';
+/**
+ * Pi Display Control & Slideshow Studio
+ * Frontend Application Logic
+ */
 
-// Load websites on page load
+// Global State
+let appState = {
+    websites: [],
+    images: [],
+    schedules: [],
+    slideshowConfig: {
+        mode: 'random',
+        interval: 30,
+        transition: 'fade',
+        fit: 'contain',
+        selected_images: []
+    }
+};
+
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
-    loadWebsites();
-    loadImages();
-    
-    // Form submission handler
-    document.getElementById('addWebsiteForm').addEventLisRuinertener('submit', handleAddWebsite);
-    document.getElementById('uploadImageForm').addEventListener('submit', handleUploadImage);
-    
-    // Display control buttons
-    document.getElementById('stopDisplay').addEventListener('click', handleStopDisplay);
-    document.getElementById('wakeDisplay').addEventListener('click', handleWakeDisplay);
+    setupTabNavigation();
+    setupEventListeners();
+    refreshAllData();
+
+    // Poll live status every 10 seconds
+    setInterval(fetchLiveStatus, 10000);
 });
 
-// Load and display websites
-async function loadWebsites() {
+// -----------------------------------------------------------------------------
+// Tab Navigation
+// -----------------------------------------------------------------------------
+function setupTabNavigation() {
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            tab.classList.add('active');
+            const targetContentId = tab.getAttribute('data-tab');
+            const targetContent = document.getElementById(targetContentId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+        });
+    });
+}
+
+// -----------------------------------------------------------------------------
+// Event Listeners Setup
+// -----------------------------------------------------------------------------
+function setupEventListeners() {
+    // Forms
+    const addWebsiteForm = document.getElementById('addWebsiteForm');
+    if (addWebsiteForm) addWebsiteForm.addEventListener('submit', handleAddWebsite);
+
+    const uploadImageForm = document.getElementById('uploadImageForm');
+    if (uploadImageForm) uploadImageForm.addEventListener('submit', handleUploadImage);
+
+    const createScheduleForm = document.getElementById('createScheduleForm');
+    if (createScheduleForm) createScheduleForm.addEventListener('submit', handleCreateSchedule);
+
+    // Screen power buttons
+    const stopDisplayBtn = document.getElementById('stopDisplay');
+    if (stopDisplayBtn) stopDisplayBtn.addEventListener('click', handleBlankDisplay);
+
+    const wakeDisplayBtn = document.getElementById('wakeDisplay');
+    if (wakeDisplayBtn) wakeDisplayBtn.addEventListener('click', handleWakeDisplay);
+}
+
+// -----------------------------------------------------------------------------
+// Data Fetching & Sync
+// -----------------------------------------------------------------------------
+async function refreshAllData() {
+    await Promise.all([
+        loadWebsites(),
+        loadImages(),
+        loadSlideshowConfig(),
+        loadSchedules(),
+        fetchLiveStatus()
+    ]);
+}
+
+async function fetchLiveStatus() {
     try {
-        const response = await fetch(`${API_BASE}/api/websites`);
-        const websites = await response.json();
-        displayWebsites(websites);
-    } catch (error) {
-        showStatus('Error loading websites: ' + error.message, 'error');
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.success) {
+            const state = data.state;
+            const badgeText = document.getElementById('liveStatusText');
+            const badge = document.getElementById('liveStatusBadge');
+
+            if (state.status === 'blank') {
+                badgeText.textContent = 'Screens Off (Blanked)';
+                badge.style.color = '#ef4444';
+            } else if (state.mode === 'slideshow') {
+                badgeText.textContent = `Slideshow Active (${state.monitor || 'both'})`;
+                badge.style.color = '#6366f1';
+            } else if (state.mode === 'website') {
+                badgeText.textContent = `Website Active (${state.monitor || 'both'})`;
+                badge.style.color = '#10b981';
+            } else {
+                badgeText.textContent = 'Display Active';
+                badge.style.color = '#10b981';
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching live status:', err);
     }
 }
 
-// Get favicon URL for a website
+// -----------------------------------------------------------------------------
+// Slideshow Studio Controller
+// -----------------------------------------------------------------------------
+async function loadSlideshowConfig() {
+    try {
+        const res = await fetch('/api/slideshow');
+        const data = await res.json();
+        if (data.success && data.config) {
+            appState.slideshowConfig = data.config;
+            renderSlideshowControls();
+        }
+    } catch (err) {
+        console.error('Error loading slideshow config:', err);
+    }
+}
+
+function renderSlideshowControls() {
+    const cfg = appState.slideshowConfig;
+
+    // Segmented buttons
+    const randomBtn = document.getElementById('modeRandomBtn');
+    const sequentialBtn = document.getElementById('modeSequentialBtn');
+    if (cfg.mode === 'random') {
+        randomBtn.classList.add('active');
+        sequentialBtn.classList.remove('active');
+    } else {
+        sequentialBtn.classList.add('active');
+        randomBtn.classList.remove('active');
+    }
+
+    // Interval selector
+    const intervalSelect = document.getElementById('slideshowInterval');
+    if (intervalSelect) intervalSelect.value = cfg.interval || 30;
+
+    // Fit mode
+    const fitSelect = document.getElementById('slideshowFit');
+    if (fitSelect) fitSelect.value = cfg.fit || 'contain';
+
+    // Transition
+    const transSelect = document.getElementById('slideshowTransition');
+    if (transSelect) transSelect.value = cfg.transition || 'fade';
+
+    updateSlideshowSummaryText();
+}
+
+function updateSlideshowSummaryText() {
+    const cfg = appState.slideshowConfig;
+    const summaryText = document.getElementById('slideshowSummaryText');
+    if (summaryText) {
+        const modeLabel = cfg.mode === 'random' ? 'Random Shuffle' : 'Sequential';
+        const intervalText = cfg.interval >= 60 ? `${cfg.interval / 60}m` : `${cfg.interval}s`;
+        const count = cfg.selected_images && cfg.selected_images.length > 0 
+            ? `${cfg.selected_images.length} selected images` 
+            : 'All uploaded images';
+        summaryText.textContent = `${modeLabel} every ${intervalText} (${count})`;
+    }
+}
+
+async function setSlideshowMode(mode) {
+    appState.slideshowConfig.mode = mode;
+    renderSlideshowControls();
+    await saveSlideshowConfigChanges();
+}
+
+async function updateSlideshowSetting(key, value) {
+    appState.slideshowConfig[key] = key === 'interval' ? parseInt(value) : value;
+    updateSlideshowSummaryText();
+    await saveSlideshowConfigChanges();
+}
+
+async function saveSlideshowConfigChanges() {
+    try {
+        await fetch('/api/slideshow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appState.slideshowConfig)
+        });
+    } catch (err) {
+        showToast('Error saving slideshow settings: ' + err.message, 'error');
+    }
+}
+
+async function launchSlideshow(monitor = 'both') {
+    if (appState.images.length === 0) {
+        showToast('Please upload at least one image before starting slideshow', 'error');
+        return;
+    }
+
+    try {
+        showToast(`Launching ${appState.slideshowConfig.mode} slideshow on ${monitor} monitor(s)...`, 'info');
+
+        const res = await fetch('/api/display', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'slideshow',
+                monitor: monitor,
+                interval: appState.slideshowConfig.interval,
+                slideshow_mode: appState.slideshowConfig.mode
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Slideshow started successfully!', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error starting slideshow: ' + err.message, 'error');
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Image Library & Uploads
+// -----------------------------------------------------------------------------
+async function loadImages() {
+    try {
+        const res = await fetch('/api/images');
+        const images = await res.json();
+        appState.images = images;
+        document.getElementById('imageCountBadge').textContent = images.length;
+        renderImagesGrid();
+    } catch (err) {
+        showToast('Error loading images: ' + err.message, 'error');
+    }
+}
+
+function renderImagesGrid() {
+    const list = document.getElementById('imageList');
+    if (!list) return;
+
+    list.innerHTML = '';
+    if (appState.images.length === 0) {
+        list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No images uploaded yet. Upload images above to start your slideshow!</div>';
+        return;
+    }
+
+    const selectedIds = new Set(appState.slideshowConfig.selected_images || []);
+
+    appState.images.forEach((img, idx) => {
+        const isSelected = selectedIds.size === 0 || selectedIds.has(img.id);
+        const card = document.createElement('div');
+        card.className = `image-card ${isSelected ? 'selected' : ''}`;
+        
+        card.innerHTML = `
+            <div class="image-thumbnail-box">
+                <img src="/api/images/${img.filename}" alt="${escapeHtml(img.name)}" loading="lazy">
+            </div>
+            <div class="image-meta">
+                <h4>${escapeHtml(img.name)}</h4>
+                <p>${escapeHtml(img.original_filename || '')}</p>
+            </div>
+            <div class="image-card-actions">
+                <button class="btn btn-xs btn-primary" onclick="displaySingleImage('${img.filename}')" title="Display this image immediately">
+                    🖥️ Show
+                </button>
+                <button class="btn btn-xs btn-danger" onclick="deleteImage(${idx})" title="Delete image">
+                    🗑️
+                </button>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+async function handleUploadImage(e) {
+    e.preventDefault();
+    const nameInput = document.getElementById('imageName');
+    const fileInput = document.getElementById('imageFile');
+    const submitBtn = document.getElementById('uploadSubmitBtn');
+
+    if (!fileInput.files[0]) {
+        showToast('Please select a file to upload', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('name', nameInput.value.trim());
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading...';
+
+        const res = await fetch('/api/images', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(`Image "${nameInput.value}" uploaded successfully!`, 'success');
+            document.getElementById('uploadImageForm').reset();
+            appState.images = data.images;
+            document.getElementById('imageCountBadge').textContent = data.images.length;
+            renderImagesGrid();
+        } else {
+            showToast('Upload error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error uploading: ' + err.message, 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload Image';
+    }
+}
+
+async function displaySingleImage(filename) {
+    try {
+        showToast(`Displaying ${filename}...`, 'info');
+        const res = await fetch('/api/display', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'image',
+                image1: filename,
+                monitor: 'both'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Image displayed on screen', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error displaying image: ' + err.message, 'error');
+    }
+}
+
+async function deleteImage(index) {
+    if (!confirm('Are you sure you want to delete this image?')) return;
+
+    try {
+        const res = await fetch(`/api/images/${index}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Image deleted successfully', 'success');
+            appState.images = data.images;
+            document.getElementById('imageCountBadge').textContent = data.images.length;
+            renderImagesGrid();
+        } else {
+            showToast('Error deleting: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error deleting image: ' + err.message, 'error');
+    }
+}
+
+function selectAllImages(selectAll) {
+    if (selectAll) {
+        appState.slideshowConfig.selected_images = appState.images.map(i => i.id);
+    } else {
+        appState.slideshowConfig.selected_images = [];
+    }
+    saveSlideshowConfigChanges();
+    renderImagesGrid();
+    updateSlideshowSummaryText();
+    showToast(selectAll ? 'All images selected for slideshow' : 'Selection cleared (all images enabled)', 'info');
+}
+
+// -----------------------------------------------------------------------------
+// Websites & Autodarts
+// -----------------------------------------------------------------------------
+async function loadWebsites() {
+    try {
+        const res = await fetch('/api/websites');
+        const websites = await res.json();
+        appState.websites = websites;
+        document.getElementById('websiteCountBadge').textContent = websites.length;
+        renderWebsitesGrid();
+        populateWebsiteOptions();
+    } catch (err) {
+        showToast('Error loading websites: ' + err.message, 'error');
+    }
+}
+
 function getFaviconUrl(url) {
     if (!url || url.trim() === '') {
-        // Default favicon for Autodarts
         return 'https://www.google.com/s2/favicons?domain=autodarts.io&sz=128';
     }
     try {
@@ -40,801 +401,356 @@ function getFaviconUrl(url) {
     }
 }
 
-// Get a gradient color based on index for fallback images
-function getGradientColor(index) {
-    const gradients = [
-        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-        'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)'
-    ];
-    return gradients[index % gradients.length];
-}
+function renderWebsitesGrid() {
+    const list = document.getElementById('websiteList');
+    if (!list) return;
 
-// Display websites in the list
-function displayWebsites(websites) {
-    const websiteList = document.getElementById('websiteList');
-    websiteList.innerHTML = '';
-
-    if (websites.length === 0) {
-        websiteList.innerHTML = '<p style="color: #a0a0a0; text-align: center; padding: 20px;">No websites added yet. Add one below!</p>';
+    list.innerHTML = '';
+    if (appState.websites.length === 0) {
+        list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No websites saved yet.</div>';
         return;
     }
 
-    websites.forEach((website, index) => {
-        const item = document.createElement('div');
-        item.className = 'website-item';
-        
-        const displayUrl = website.url || '(default - Autodarts Board)';
-        const isDefault = !website.url || website.is_default;
-        const faviconUrl = getFaviconUrl(website.url);
-        const gradientColor = getGradientColor(index);
-        
-        item.innerHTML = `
-            <div class="website-image" style="background: ${gradientColor};">
-                <div class="favicon">
-                    <img src="${faviconUrl}" alt="${escapeHtml(website.name)}" onerror="this.parentElement.innerHTML='🌐';">
+    appState.websites.forEach((site, idx) => {
+        const isDefault = !site.url || site.is_default;
+        const favicon = getFaviconUrl(site.url);
+
+        const card = document.createElement('div');
+        card.className = 'website-card';
+        card.innerHTML = `
+            <div class="website-header">
+                <div class="website-favicon">
+                    <img src="${favicon}" alt="${escapeHtml(site.name)}" onerror="this.parentElement.innerHTML='🌐';">
                 </div>
-            </div>
-            <div class="website-content">
-            <div class="website-info">
-                <h3>
-                    ${escapeHtml(website.name)}
-                    ${isDefault ? '<span class="badge">Default</span>' : ''}
-                </h3>
-                <p>${escapeHtml(displayUrl)}</p>
+                <div class="website-info">
+                    <h4>
+                        ${escapeHtml(site.name)}
+                        ${isDefault ? '<span class="website-badge">Default</span>' : ''}
+                    </h4>
+                    <p>${escapeHtml(site.url || 'Autodarts Board Kiosk')}</p>
+                </div>
             </div>
             <div class="website-actions">
-                    <button class="btn btn-success" onclick="showMonitorDialog(${index})">
-                    Start Display
+                <button class="btn btn-sm btn-primary" onclick="launchWebsite(${idx}, 'both')">
+                    🚀 Both Displays
                 </button>
-                <button class="btn btn-secondary" onclick="deleteWebsite(${index})">
-                    Delete
+                <button class="btn btn-sm btn-secondary" onclick="launchWebsite(${idx}, '1')">
+                    🖥️ Monitor 1
                 </button>
-                </div>
+                <button class="btn btn-sm btn-secondary" onclick="launchWebsite(${idx}, '2')">
+                    🖥️ Monitor 2
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})">
+                    🗑️ Delete
+                </button>
             </div>
         `;
-        
-        websiteList.appendChild(item);
+        list.appendChild(card);
     });
 }
 
-// Start display with a website
-async function startDisplay(index, monitor = 'both', url2 = null) {
-    try {
-        const response = await fetch(`${API_BASE}/api/websites`);
-        const websites = await response.json();
-        const website = websites[index];
-        
-        if (!website) {
-            showStatus('Website not found', 'error');
-            return;
-        }
-
-        const payload = {
-            url1: website.url || '',
-            monitor: monitor
-        };
-        
-        // If dual monitor mode and url2 is provided, use it
-        if (monitor === 'both' && url2 !== null) {
-            payload.url2 = url2;
-        } else if (monitor === '2' && url2 !== null) {
-            payload.url2 = url2;
-        }
-
-        const response2 = await fetch(`${API_BASE}/api/display`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response2.json();
-        
-        if (result.success) {
-            showStatus(result.message, 'success');
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error starting display: ' + error.message, 'error');
-    }
-}
-
-// Show monitor selection dialog
-function showMonitorDialog(index) {
-    Promise.all([
-        fetch(`${API_BASE}/api/websites`).then(res => res.json()),
-        fetch(`${API_BASE}/api/images`).then(res => res.json())
-    ])
-        .then(([websites, images]) => {
-            const website = websites[index];
-            if (!website) {
-                showStatus('Website not found', 'error');
-                return;
-            }
-
-            // Create dialog
-            const dialog = document.createElement('div');
-            dialog.className = 'monitor-dialog-overlay';
-            dialog.innerHTML = `
-                <div class="monitor-dialog">
-                    <h3>Select Monitor(s)</h3>
-                    <p class="dialog-subtitle">Choose where to display: ${escapeHtml(website.name)}</p>
-                    <div class="monitor-options">
-                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, '1'); closeMonitorDialog();">
-                            Monitor 1 Only
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, '2'); closeMonitorDialog();">
-                            Monitor 2 Only
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="startDisplay(${index}, 'both'); closeMonitorDialog();">
-                            Both Monitors (Same Site)
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="showDualMonitorDialog(${index});">
-                            Both Monitors (Different Sites/Images)
-                        </button>
-                    </div>
-                    <button class="btn btn-secondary" onclick="closeMonitorDialog();" style="margin-top: 15px; width: 100%;">
-                        Cancel
-                    </button>
-                </div>
-            `;
-            // Close on overlay click
-            dialog.addEventListener('click', (e) => {
-                if (e.target === dialog) {
-                    closeMonitorDialog();
-                }
-            });
-            document.body.appendChild(dialog);
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
-// Show dual monitor dialog for selecting different sites or images
-function showDualMonitorDialog(index1) {
-    Promise.all([
-        fetch(`${API_BASE}/api/websites`).then(res => res.json()),
-        fetch(`${API_BASE}/api/images`).then(res => res.json())
-    ])
-        .then(([websites, images]) => {
-            const website1 = websites[index1];
-            if (!website1) {
-                showStatus('Website not found', 'error');
-                return;
-            }
-
-            // Close existing dialog
-            closeMonitorDialog();
-
-            // Create dual monitor dialog
-            const dialog = document.createElement('div');
-            dialog.className = 'monitor-dialog-overlay';
-            dialog.innerHTML = `
-                <div class="monitor-dialog" style="max-width: 500px;">
-                    <h3>Dual Monitor Setup</h3>
-                    <div class="dual-monitor-form">
-                        <div class="monitor-selection">
-                            <label><strong>Monitor 1:</strong></label>
-                            <div class="selected-site">${escapeHtml(website1.name)}</div>
-                            <small>${escapeHtml(website1.url || 'default (Autodarts)')}</small>
-                        </div>
-                        <div class="monitor-selection">
-                            <label><strong>Monitor 2:</strong></label>
-                            <select id="monitor2Type" class="site-select" onchange="updateMonitor2Options()">
-                                <option value="website">Website</option>
-                                <option value="image">Image</option>
-                            </select>
-                            <select id="monitor2Site" class="site-select" style="margin-top: 8px;">
-                                ${websites.map((site, idx) => 
-                                    `<option value="${idx}" ${idx === index1 ? 'selected' : ''}>${escapeHtml(site.name)}</option>`
-                                ).join('')}
-                            </select>
-                            <select id="monitor2Image" class="site-select" style="margin-top: 8px; display: none;">
-                                ${images.map((img, idx) => 
-                                    `<option value="${idx}">${escapeHtml(img.name)}</option>`
-                                ).join('')}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="dialog-actions">
-                        <button class="btn btn-success" onclick="startDualMonitor(${index1});">
-                            Start Both Monitors
-                        </button>
-                        <button class="btn btn-secondary" onclick="closeMonitorDialog();">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            `;
-            // Close on overlay click
-            dialog.addEventListener('click', (e) => {
-                if (e.target === dialog) {
-                    closeMonitorDialog();
-                }
-            });
-            document.body.appendChild(dialog);
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
-// Update monitor 2 options based on type selection
-function updateMonitor2Options() {
-    const type = document.getElementById('monitor2Type').value;
-    const siteSelect = document.getElementById('monitor2Site');
-    const imageSelect = document.getElementById('monitor2Image');
-    
-    if (type === 'image') {
-        siteSelect.style.display = 'none';
-        imageSelect.style.display = 'block';
-    } else {
-        siteSelect.style.display = 'block';
-        imageSelect.style.display = 'none';
-    }
-}
-
-// Start dual monitor with different sites or images
-function startDualMonitor(index1) {
-    const type = document.getElementById('monitor2Type').value;
-    const index2 = parseInt(type === 'image' ? document.getElementById('monitor2Image').value : document.getElementById('monitor2Site').value);
-    
-    Promise.all([
-        fetch(`${API_BASE}/api/websites`).then(res => res.json()),
-        fetch(`${API_BASE}/api/images`).then(res => res.json())
-    ])
-        .then(([websites, images]) => {
-            const website1 = websites[index1];
-            
-            if (!website1) {
-                showStatus('Website not found', 'error');
-                return;
-            }
-
-            if (type === 'image') {
-                const image2 = images[index2];
-                if (!image2) {
-                    showStatus('Image not found', 'error');
-                    return;
-                }
-                // Start with website on monitor 1 and image on monitor 2
-                const payload = {
-                    url1: website1.url || '',
-                    image2: image2.filename,
-                    monitor: 'both'
-                };
-                
-                fetch(`${API_BASE}/api/display`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.success) {
-                        showStatus(result.message, 'success');
-                    } else {
-                        showStatus('Error: ' + result.error, 'error');
-                    }
-                    closeMonitorDialog();
-                })
-                .catch(error => {
-                    showStatus('Error: ' + error.message, 'error');
-                });
-            } else {
-                const website2 = websites[index2];
-                if (!website2) {
-                    showStatus('Website not found', 'error');
-                    return;
-                }
-                startDisplay(index1, 'both', website2.url || '');
-                closeMonitorDialog();
-            }
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
-// Close monitor dialog
-function closeMonitorDialog() {
-    const dialog = document.querySelector('.monitor-dialog-overlay');
-    if (dialog) {
-        dialog.remove();
-    }
-}
-
-// Stop display (blank screen)
-async function handleStopDisplay() {
-    try {
-        const response = await fetch(`${API_BASE}/api/display`, {
-            method: 'DELETE'
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(result.message, 'success');
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error blanking display: ' + error.message, 'error');
-    }
-}
-
-// Wake display
-async function handleWakeDisplay() {
-    try {
-        const response = await fetch(`${API_BASE}/api/display/wake`, {
-            method: 'POST'
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(result.message, 'success');
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error waking display: ' + error.message, 'error');
-    }
-}
-
-// Add new website
 async function handleAddWebsite(e) {
     e.preventDefault();
-    
     const name = document.getElementById('websiteName').value.trim();
     const url = document.getElementById('websiteUrl').value.trim();
 
-    if (!name) {
-        showStatus('Please enter a website name', 'error');
-        return;
+    try {
+        const res = await fetch('/api/websites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Website "${name}" saved!`, 'success');
+            document.getElementById('addWebsiteForm').reset();
+            appState.websites = data.websites;
+            document.getElementById('websiteCountBadge').textContent = data.websites.length;
+            renderWebsitesGrid();
+            populateWebsiteOptions();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error adding website: ' + err.message, 'error');
     }
+}
+
+async function launchWebsite(index, monitor = 'both') {
+    const site = appState.websites[index];
+    if (!site) return;
 
     try {
-        const response = await fetch(`${API_BASE}/api/websites`, {
+        showToast(`Launching ${site.name} on ${monitor} monitor(s)...`, 'info');
+        const res = await fetch('/api/display', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                name: name,
-                url: url
+                mode: 'website',
+                url1: site.url || '',
+                monitor: monitor
             })
         });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(`Website "${name}" added successfully!`, 'success');
-            document.getElementById('addWebsiteForm').reset();
-            displayWebsites(result.websites);
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Website launched successfully', 'success');
+            fetchLiveStatus();
         } else {
-            showStatus('Error: ' + result.error, 'error');
+            showToast('Error: ' + data.error, 'error');
         }
-    } catch (error) {
-        showStatus('Error adding website: ' + error.message, 'error');
+    } catch (err) {
+        showToast('Error launching website: ' + err.message, 'error');
     }
 }
 
-// Delete website
 async function deleteWebsite(index) {
-    if (!confirm('Are you sure you want to delete this website?')) {
+    if (!confirm('Are you sure you want to delete this website?')) return;
+
+    try {
+        const res = await fetch(`/api/websites/${index}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Website deleted', 'success');
+            appState.websites = data.websites;
+            document.getElementById('websiteCountBadge').textContent = data.websites.length;
+            renderWebsitesGrid();
+            populateWebsiteOptions();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error deleting website: ' + err.message, 'error');
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Time-based Scheduler
+// -----------------------------------------------------------------------------
+async function loadSchedules() {
+    try {
+        const res = await fetch('/api/schedules');
+        const schedules = await res.json();
+        appState.schedules = schedules;
+        document.getElementById('scheduleCountBadge').textContent = schedules.length;
+        renderSchedulesList();
+    } catch (err) {
+        showToast('Error loading schedules: ' + err.message, 'error');
+    }
+}
+
+function renderSchedulesList() {
+    const list = document.getElementById('schedulesList');
+    if (!list) return;
+
+    list.innerHTML = '';
+    if (appState.schedules.length === 0) {
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No automated schedules set up yet. Click "New Schedule" above to add one!</div>';
         return;
     }
 
-    try {
-        const response = await fetch(`${API_BASE}/api/websites/${index}`, {
-            method: 'DELETE'
-        });
+    appState.schedules.forEach(sch => {
+        const row = document.createElement('div');
+        row.className = 'schedule-row';
 
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus('Website deleted successfully', 'success');
-            displayWebsites(result.websites);
-        } else {
-            showStatus('Error: ' + result.error, 'error');
+        let actionDesc = sch.action;
+        if (sch.action === 'slideshow') {
+            const mode = (sch.params && sch.params.mode) || 'random';
+            const interval = (sch.params && sch.params.interval) || 30;
+            actionDesc = `Start ${mode} slideshow (every ${interval}s)`;
+        } else if (sch.action === 'website') {
+            actionDesc = `Switch to website/Autodarts`;
+        } else if (sch.action === 'blank') {
+            actionDesc = `Blank screen (Sleep)`;
+        } else if (sch.action === 'wake') {
+            actionDesc = `Wake screen (Turn on)`;
         }
-    } catch (error) {
-        showStatus('Error deleting website: ' + error.message, 'error');
+
+        row.innerHTML = `
+            <div class="schedule-time-box">
+                <div class="schedule-time">${escapeHtml(sch.time)}</div>
+                <div class="schedule-info">
+                    <h4>${escapeHtml(sch.name)}</h4>
+                    <p>${actionDesc} &bull; Target: ${sch.params?.monitor || 'both'}</p>
+                </div>
+            </div>
+            <div class="schedule-controls">
+                <label class="switch" title="Toggle active/inactive">
+                    <input type="checkbox" ${sch.enabled ? 'checked' : ''} onchange="toggleSchedule('${sch.id}')">
+                    <span class="slider"></span>
+                </label>
+                <button class="btn btn-xs btn-danger" onclick="deleteSchedule('${sch.id}')" title="Delete schedule">
+                    🗑️
+                </button>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function openAddScheduleModal() {
+    document.getElementById('scheduleModal').style.display = 'flex';
+}
+
+function closeScheduleModal() {
+    document.getElementById('scheduleModal').style.display = 'none';
+}
+
+function onScheduleActionChange() {
+    const action = document.getElementById('scheduleAction').value;
+    const slideshowOptions = document.getElementById('scheduleSlideshowOptions');
+    const websiteOptions = document.getElementById('scheduleWebsiteOptions');
+    const monitorGroup = document.getElementById('scheduleMonitorGroup');
+
+    if (action === 'slideshow') {
+        slideshowOptions.style.display = 'block';
+        websiteOptions.style.display = 'none';
+        monitorGroup.style.display = 'block';
+    } else if (action === 'website') {
+        slideshowOptions.style.display = 'none';
+        websiteOptions.style.display = 'block';
+        monitorGroup.style.display = 'block';
+    } else {
+        slideshowOptions.style.display = 'none';
+        websiteOptions.style.display = 'none';
+        monitorGroup.style.display = 'none';
     }
 }
 
-// Show status message
-function showStatus(message, type = 'info') {
-    const statusEl = document.getElementById('statusMessage');
-    statusEl.textContent = message;
-    statusEl.className = `status-message ${type} show`;
-    
-    setTimeout(() => {
-        statusEl.classList.remove('show');
+function populateWebsiteOptions() {
+    const picker = document.getElementById('scheduleWebsitePicker');
+    if (!picker) return;
+    picker.innerHTML = appState.websites.map(w => 
+        `<option value="${escapeHtml(w.url || '')}">${escapeHtml(w.name)}</option>`
+    ).join('');
+}
+
+async function handleCreateSchedule(e) {
+    e.preventDefault();
+    const name = document.getElementById('scheduleName').value.trim();
+    const timeVal = document.getElementById('scheduleTime').value.trim();
+    const action = document.getElementById('scheduleAction').value;
+    const monitor = document.getElementById('scheduleMonitor').value;
+
+    const params = { monitor: monitor };
+
+    if (action === 'slideshow') {
+        params.mode = document.getElementById('scheduleSlideshowMode').value;
+        params.interval = parseInt(document.getElementById('scheduleSlideshowInterval').value) || 30;
+    } else if (action === 'website') {
+        params.url1 = document.getElementById('scheduleWebsitePicker').value;
+    }
+
+    try {
+        const res = await fetch('/api/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                time: timeVal,
+                action: action,
+                params: params
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Schedule created successfully!', 'success');
+            closeScheduleModal();
+            document.getElementById('createScheduleForm').reset();
+            appState.schedules = data.schedules;
+            document.getElementById('scheduleCountBadge').textContent = data.schedules.length;
+            renderSchedulesList();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error saving schedule: ' + err.message, 'error');
+    }
+}
+
+async function toggleSchedule(scheduleId) {
+    try {
+        const res = await fetch(`/api/schedules/${scheduleId}/toggle`, { method: 'PUT' });
+        const data = await res.json();
+        if (data.success) {
+            appState.schedules = data.schedules;
+            renderSchedulesList();
+        }
+    } catch (err) {
+        showToast('Error toggling schedule: ' + err.message, 'error');
+    }
+}
+
+async function deleteSchedule(scheduleId) {
+    if (!confirm('Are you sure you want to delete this schedule?')) return;
+    try {
+        const res = await fetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Schedule deleted', 'success');
+            appState.schedules = data.schedules;
+            document.getElementById('scheduleCountBadge').textContent = data.schedules.length;
+            renderSchedulesList();
+        }
+    } catch (err) {
+        showToast('Error deleting schedule: ' + err.message, 'error');
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Screen Wake / Blank Handlers
+// -----------------------------------------------------------------------------
+async function handleBlankDisplay() {
+    try {
+        showToast('Turning screens off...', 'info');
+        const res = await fetch('/api/display', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Displays blanked (screens turned off)', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error blanking display: ' + err.message, 'error');
+    }
+}
+
+async function handleWakeDisplay() {
+    try {
+        showToast('Waking screens...', 'info');
+        const res = await fetch('/api/display/wake', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Displays woken up', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error waking display: ' + err.message, 'error');
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Toast Notifications & Helpers
+// -----------------------------------------------------------------------------
+let toastTimeout;
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('statusMessage');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.className = `toast-notification ${type} show`;
+
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
     }, 4000);
 }
 
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
-
-// Load and display images
-async function loadImages() {
-    try {
-        const response = await fetch(`${API_BASE}/api/images`);
-        const images = await response.json();
-        displayImages(images);
-    } catch (error) {
-        showStatus('Error loading images: ' + error.message, 'error');
-    }
-}
-
-// Display images in the list
-function displayImages(images) {
-    const imageList = document.getElementById('imageList');
-    imageList.innerHTML = '';
-
-    if (images.length === 0) {
-        imageList.innerHTML = '<p style="color: #a0a0a0; text-align: center; padding: 20px;">No images uploaded yet. Upload one below!</p>';
-        return;
-    }
-
-    images.forEach((image, index) => {
-        const item = document.createElement('div');
-        item.className = 'image-item';
-        
-        const imageUrl = `${API_BASE}/api/images/${image.filename}`;
-        
-        item.innerHTML = `
-            <div class="image-preview">
-                <img src="${imageUrl}" alt="${escapeHtml(image.name)}" onerror="this.parentElement.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)';">
-            </div>
-            <div class="image-content">
-                <div class="image-info">
-                    <h3>${escapeHtml(image.name)}</h3>
-                    <p>${escapeHtml(image.original_filename)}</p>
-                </div>
-                <div class="image-actions">
-                    <button class="btn btn-success" onclick="showImageMonitorDialog(${index})">
-                        Display Image
-                    </button>
-                    <button class="btn btn-secondary" onclick="deleteImage(${index})">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        imageList.appendChild(item);
-    });
-}
-
-// Upload new image
-async function handleUploadImage(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('imageName').value.trim();
-    const fileInput = document.getElementById('imageFile');
-    const file = fileInput.files[0];
-
-    if (!name) {
-        showStatus('Please enter an image name', 'error');
-        return;
-    }
-
-    if (!file) {
-        showStatus('Please select an image file', 'error');
-        return;
-    }
-
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', name);
-
-        const response = await fetch(`${API_BASE}/api/images`, {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(`Image "${name}" uploaded successfully!`, 'success');
-            document.getElementById('uploadImageForm').reset();
-            displayImages(result.images);
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error uploading image: ' + error.message, 'error');
-    }
-}
-
-// Delete image
-async function deleteImage(index) {
-    if (!confirm('Are you sure you want to delete this image?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE}/api/images/${index}`, {
-            method: 'DELETE'
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus('Image deleted successfully', 'success');
-            displayImages(result.images);
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error deleting image: ' + error.message, 'error');
-    }
-}
-
-// Show image monitor selection dialog
-function showImageMonitorDialog(index) {
-    fetch(`${API_BASE}/api/images`)
-        .then(res => res.json())
-        .then(images => {
-            const image = images[index];
-            if (!image) {
-                showStatus('Image not found', 'error');
-                return;
-            }
-
-            // Create dialog
-            const dialog = document.createElement('div');
-            dialog.className = 'monitor-dialog-overlay';
-            dialog.innerHTML = `
-                <div class="monitor-dialog">
-                    <h3>Select Monitor(s)</h3>
-                    <p class="dialog-subtitle">Choose where to display: ${escapeHtml(image.name)}</p>
-                    <div class="image-preview-dialog">
-                        <img src="${API_BASE}/api/images/${image.filename}" alt="${escapeHtml(image.name)}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin-bottom: 15px;">
-                    </div>
-                    <div class="monitor-options">
-                        <button class="btn btn-primary monitor-btn" onclick="startImageDisplay(${index}, '1'); closeMonitorDialog();">
-                            Monitor 1 Only
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="startImageDisplay(${index}, '2'); closeMonitorDialog();">
-                            Monitor 2 Only
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="startImageDisplay(${index}, 'both'); closeMonitorDialog();">
-                            Both Monitors (Same Image)
-                        </button>
-                        <button class="btn btn-primary monitor-btn" onclick="showDualImageMonitorDialog(${index});">
-                            Both Monitors (Different Images)
-                        </button>
-                    </div>
-                    <button class="btn btn-secondary" onclick="closeMonitorDialog();" style="margin-top: 15px; width: 100%;">
-                        Cancel
-                    </button>
-                </div>
-            `;
-            // Close on overlay click
-            dialog.addEventListener('click', (e) => {
-                if (e.target === dialog) {
-                    closeMonitorDialog();
-                }
-            });
-            document.body.appendChild(dialog);
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
-// Start display with an image
-async function startImageDisplay(index, monitor = 'both', image2Index = null) {
-    try {
-        const response = await fetch(`${API_BASE}/api/images`);
-        const images = await response.json();
-        const image = images[index];
-        
-        if (!image) {
-            showStatus('Image not found', 'error');
-            return;
-        }
-
-        const payload = {
-            image1: image.filename,
-            monitor: monitor
-        };
-        
-        // If dual monitor mode and image2Index is provided, use it
-        if (monitor === 'both' && image2Index !== null) {
-            const image2 = images[image2Index];
-            if (image2) {
-                payload.image2 = image2.filename;
-            }
-        } else if (monitor === '2' && image2Index !== null) {
-            const image2 = images[image2Index];
-            if (image2) {
-                payload.image2 = image2.filename;
-            }
-        }
-
-        const response2 = await fetch(`${API_BASE}/api/display`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response2.json();
-        
-        if (result.success) {
-            showStatus(result.message, 'success');
-        } else {
-            showStatus('Error: ' + result.error, 'error');
-        }
-    } catch (error) {
-        showStatus('Error starting display: ' + error.message, 'error');
-    }
-}
-
-// Show dual image monitor dialog
-function showDualImageMonitorDialog(index1) {
-    Promise.all([
-        fetch(`${API_BASE}/api/images`).then(res => res.json()),
-        fetch(`${API_BASE}/api/websites`).then(res => res.json())
-    ])
-        .then(([images, websites]) => {
-            const image1 = images[index1];
-            if (!image1) {
-                showStatus('Image not found', 'error');
-                return;
-            }
-
-            // Close existing dialog
-            closeMonitorDialog();
-
-            // Create dual monitor dialog
-            const dialog = document.createElement('div');
-            dialog.className = 'monitor-dialog-overlay';
-            dialog.innerHTML = `
-                <div class="monitor-dialog" style="max-width: 500px;">
-                    <h3>Dual Monitor Setup</h3>
-                    <div class="dual-monitor-form">
-                        <div class="monitor-selection">
-                            <label><strong>Monitor 1:</strong></label>
-                            <div class="selected-site">
-                                <img src="${API_BASE}/api/images/${image1.filename}" alt="${escapeHtml(image1.name)}" style="max-width: 100px; max-height: 60px; border-radius: 4px; margin-right: 10px; vertical-align: middle;">
-                                ${escapeHtml(image1.name)}
-                            </div>
-                        </div>
-                        <div class="monitor-selection">
-                            <label><strong>Monitor 2:</strong></label>
-                            <select id="monitor2ImageType" class="site-select" onchange="updateMonitor2ImageOptions()">
-                                <option value="image">Image</option>
-                                <option value="website">Website</option>
-                            </select>
-                            <select id="monitor2Image" class="site-select" style="margin-top: 8px;">
-                                ${images.map((img, idx) => 
-                                    `<option value="${idx}" ${idx === index1 ? 'selected' : ''}>${escapeHtml(img.name)}</option>`
-                                ).join('')}
-                            </select>
-                            <select id="monitor2ImageSite" class="site-select" style="margin-top: 8px; display: none;">
-                                ${websites.map((site, idx) => 
-                                    `<option value="${idx}">${escapeHtml(site.name)}</option>`
-                                ).join('')}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="dialog-actions">
-                        <button class="btn btn-success" onclick="startDualImageMonitor(${index1});">
-                            Start Both Monitors
-                        </button>
-                        <button class="btn btn-secondary" onclick="closeMonitorDialog();">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            `;
-            // Close on overlay click
-            dialog.addEventListener('click', (e) => {
-                if (e.target === dialog) {
-                    closeMonitorDialog();
-                }
-            });
-            document.body.appendChild(dialog);
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
-// Update monitor 2 image options based on type selection
-function updateMonitor2ImageOptions() {
-    const type = document.getElementById('monitor2ImageType').value;
-    const imageSelect = document.getElementById('monitor2Image');
-    const siteSelect = document.getElementById('monitor2ImageSite');
-    
-    if (type === 'website') {
-        imageSelect.style.display = 'none';
-        siteSelect.style.display = 'block';
-    } else {
-        imageSelect.style.display = 'block';
-        siteSelect.style.display = 'none';
-    }
-}
-
-// Start dual monitor with different images or websites
-function startDualImageMonitor(index1) {
-    const type = document.getElementById('monitor2ImageType').value;
-    const index2 = parseInt(type === 'website' ? document.getElementById('monitor2ImageSite').value : document.getElementById('monitor2Image').value);
-    
-    Promise.all([
-        fetch(`${API_BASE}/api/images`).then(res => res.json()),
-        fetch(`${API_BASE}/api/websites`).then(res => res.json())
-    ])
-        .then(([images, websites]) => {
-            const image1 = images[index1];
-            
-            if (!image1) {
-                showStatus('Image not found', 'error');
-                return;
-            }
-
-            if (type === 'website') {
-                const website2 = websites[index2];
-                if (!website2) {
-                    showStatus('Website not found', 'error');
-                    return;
-                }
-                // Start with image on monitor 1 and website on monitor 2
-                const payload = {
-                    image1: image1.filename,
-                    url2: website2.url || '',
-                    monitor: 'both'
-                };
-                
-                fetch(`${API_BASE}/api/display`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(result => {
-                    if (result.success) {
-                        showStatus(result.message, 'success');
-                    } else {
-                        showStatus('Error: ' + result.error, 'error');
-                    }
-                    closeMonitorDialog();
-                })
-                .catch(error => {
-                    showStatus('Error: ' + error.message, 'error');
-                });
-            } else {
-                startImageDisplay(index1, 'both', index2);
-                closeMonitorDialog();
-            }
-        })
-        .catch(error => {
-            showStatus('Error: ' + error.message, 'error');
-        });
-}
-
