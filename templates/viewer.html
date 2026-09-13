@@ -56,6 +56,10 @@
             background-size: cover;
         }
 
+        .slide.fit-contain {
+            background-size: contain;
+        }
+
         .slide.active {
             opacity: 1;
             z-index: 2;
@@ -148,8 +152,10 @@
         // Parse URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const singleImage = urlParams.get('single');
-        const paramMode = urlParams.get('mode');
+        const rawMode = urlParams.get('mode');
+        const paramMode = (rawMode && rawMode !== 'slideshow') ? rawMode : null;
         const paramInterval = urlParams.get('interval');
+        const paramFit = urlParams.get('fit');
         const monitorTarget = urlParams.get('monitor') || 'both';
 
         let images = [];
@@ -157,7 +163,7 @@
             mode: paramMode || 'random',
             interval: parseInt(paramInterval) || 30,
             transition: 'fade',
-            fit: 'contain'
+            fit: paramFit || 'cover'
         };
 
         let playlist = [];
@@ -203,7 +209,16 @@
         // Initialize display
         async function init() {
             if (singleImage) {
-                // Show single static image
+                // If fit is not in URL, query server config
+                if (!paramFit) {
+                    try {
+                        const res = await fetch(`/api/viewer/data?monitor=${encodeURIComponent(monitorTarget)}`);
+                        const data = await res.json();
+                        if (data.success && data.config && data.config.fit) {
+                            config.fit = data.config.fit;
+                        }
+                    } catch (e) {}
+                }
                 showSingleImage(`/api/images/${singleImage}`);
                 return;
             }
@@ -216,25 +231,29 @@
         }
 
         function showSingleImage(url) {
+            const currentFit = paramFit || config.fit || 'cover';
+            const fitClass = currentFit === 'contain' ? 'fit-contain' : 'fit-cover';
             slideA.style.backgroundImage = `url("${url}")`;
-            slideA.className = 'slide active fit-contain';
+            slideA.className = `slide active ${fitClass}`;
             infoTitle.textContent = singleImage;
             infoCount.textContent = 'Single Image';
         }
 
         async function fetchViewerData() {
             try {
-                const res = await fetch('/api/viewer/data');
+                const res = await fetch(`/api/viewer/data?monitor=${encodeURIComponent(monitorTarget)}`);
                 const data = await res.json();
                 if (data.success && data.images) {
                     const prevCount = images.length;
                     images = data.images;
 
                     // Apply server config unless overridden by query params
-                    if (!paramMode && data.config.mode) config.mode = data.config.mode;
+                    if (!paramMode && data.config.mode && data.config.mode !== 'slideshow') {
+                        config.mode = data.config.mode;
+                    }
                     if (!paramInterval && data.config.interval) config.interval = data.config.interval;
                     if (data.config.transition) config.transition = data.config.transition;
-                    if (data.config.fit) config.fit = data.config.fit;
+                    if (!paramFit && data.config.fit) config.fit = data.config.fit;
 
                     applyTransitionClass();
 
@@ -277,9 +296,20 @@
             emptyState.style.display = 'none';
 
             if (config.mode === 'random') {
-                playlist = shuffleArray(images);
+                let shuffled = shuffleArray(images);
+                // For Monitor 2: offset to guarantee monitor 1 and monitor 2 show different images
+                if (monitorTarget === '2' && shuffled.length > 1) {
+                    const offset = Math.max(1, Math.floor(shuffled.length / 2));
+                    shuffled = [...shuffled.slice(offset), ...shuffled.slice(0, offset)];
+                }
+                playlist = shuffled;
             } else {
-                playlist = [...images];
+                let seq = [...images];
+                if (monitorTarget === '2' && seq.length > 1) {
+                    const offset = Math.max(1, Math.floor(seq.length / 2));
+                    seq = [...seq.slice(offset), ...seq.slice(0, offset)];
+                }
+                playlist = seq;
             }
             currentIndex = 0;
             renderCurrentSlide();
@@ -292,7 +322,8 @@
             const incomingSlide = activeSlideIsA ? slideB : slideA;
             const outgoingSlide = activeSlideIsA ? slideA : slideB;
 
-            const fitClass = config.fit === 'cover' ? 'fit-cover' : 'fit-contain';
+            const currentFit = paramFit || config.fit || 'cover';
+            const fitClass = currentFit === 'contain' ? 'fit-contain' : 'fit-cover';
 
             // Preload image before switching
             const img = new Image();
@@ -314,7 +345,18 @@
             currentIndex++;
             if (currentIndex >= playlist.length) {
                 if (config.mode === 'random') {
-                    playlist = shuffleArray(images);
+                    const lastImageId = playlist[playlist.length - 1]?.id;
+                    let reshuffled = shuffleArray(images);
+                    // Avoid repeating the last image as the first slide of the new batch
+                    if (images.length > 1 && reshuffled[0]?.id === lastImageId) {
+                        const swapIdx = Math.floor(Math.random() * (reshuffled.length - 1)) + 1;
+                        [reshuffled[0], reshuffled[swapIdx]] = [reshuffled[swapIdx], reshuffled[0]];
+                    }
+                    if (monitorTarget === '2' && reshuffled.length > 1) {
+                        const offset = Math.max(1, Math.floor(reshuffled.length / 2));
+                        reshuffled = [...reshuffled.slice(offset), ...reshuffled.slice(0, offset)];
+                    }
+                    playlist = reshuffled;
                 }
                 currentIndex = 0;
             }

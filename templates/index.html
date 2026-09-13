@@ -117,6 +117,14 @@
                                     <div id="mixerMon1SlideshowBox" class="form-group" style="display: none;">
                                         <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
                                     </div>
+
+                                    <div id="mixerMon1FitBox" class="form-group" style="display: none;">
+                                        <label for="mixerMon1Fit">Image Fit</label>
+                                        <select id="mixerMon1Fit" class="form-select">
+                                            <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                            <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -154,6 +162,14 @@
 
                                     <div id="mixerMon2SlideshowBox" class="form-group">
                                         <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
+                                    </div>
+
+                                    <div id="mixerMon2FitBox" class="form-group">
+                                        <label for="mixerMon2Fit">Image Fit</label>
+                                        <select id="mixerMon2Fit" class="form-select">
+                                            <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                            <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -212,8 +228,8 @@
                             <div class="setting-item">
                                 <label class="setting-label" for="slideshowFit">Image Fit</label>
                                 <select id="slideshowFit" class="form-select" onchange="updateSlideshowSetting('fit', this.value)">
-                                    <option value="contain" selected>Contain (Preserve Full Aspect Ratio)</option>
-                                    <option value="cover">Cover (Fill Entire Screen)</option>
+                                    <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                    <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
                                 </select>
                             </div>
 

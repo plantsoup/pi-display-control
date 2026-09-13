@@ -100,20 +100,43 @@ class PiDisplayControlTestCase(unittest.TestCase):
         res = self.client.post('/api/display', json={
             'monitor': 'both',
             'monitor1': {'type': 'website', 'url': 'https://autodarts.io'},
-            'monitor2': {'type': 'slideshow', 'mode': 'random', 'interval': 15}
+            'monitor2': {'type': 'slideshow', 'mode': 'random', 'interval': 15, 'fit': 'cover'}
         })
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.data)
         self.assertTrue(data['success'])
 
-        # Single monitor update: Monitor 2 only
+        # Verify slideshow config mode remains 'random', not corrupted to 'slideshow'
+        cfg = load_slideshow_config()
+        self.assertEqual(cfg['mode'], 'random')
+
+        # Single monitor update: Monitor 2 only with fit cover
         res2 = self.client.post('/api/display', json={
             'monitor': '2',
-            'monitor2': {'type': 'image', 'image': 'test.jpg'}
+            'monitor2': {'type': 'image', 'image': 'test.jpg', 'fit': 'cover'}
         })
         self.assertEqual(res2.status_code, 200)
         data2 = json.loads(res2.data)
         self.assertTrue(data2['success'])
+
+    def test_slideshow_launch_mode_preservation(self):
+        # Launch slideshow with random mode
+        res = self.client.post('/api/display', json={
+            'mode': 'slideshow',
+            'monitor': 'both',
+            'interval': 30,
+            'slideshow_mode': 'random',
+            'fit': 'cover'
+        })
+        self.assertEqual(res.status_code, 200)
+        cfg = load_slideshow_config()
+        self.assertEqual(cfg['mode'], 'random')
+        self.assertEqual(cfg['fit'], 'cover')
+
+    def test_viewer_route(self):
+        # Verify /viewer renders correctly
+        res = self.client.get('/viewer?monitor=1&mode=random&interval=30&fit=cover')
+        self.assertEqual(res.status_code, 200)
 
 if __name__ == '__main__':
     unittest.main()

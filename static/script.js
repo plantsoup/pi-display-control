@@ -12,7 +12,7 @@ let appState = {
         mode: 'random',
         interval: 30,
         transition: 'fade',
-        fit: 'contain',
+        fit: 'cover',
         selected_images: []
     }
 };
@@ -122,6 +122,7 @@ function onMixerTypeChange(monId) {
     const websiteBox = document.getElementById(`mixerMon${monId}WebsiteBox`);
     const imageBox = document.getElementById(`mixerMon${monId}ImageBox`);
     const slideshowBox = document.getElementById(`mixerMon${monId}SlideshowBox`);
+    const fitBox = document.getElementById(`mixerMon${monId}FitBox`);
 
     const type = typeSelect ? typeSelect.value : 'website';
 
@@ -129,14 +130,17 @@ function onMixerTypeChange(monId) {
         if (websiteBox) websiteBox.style.display = 'block';
         if (imageBox) imageBox.style.display = 'none';
         if (slideshowBox) slideshowBox.style.display = 'none';
+        if (fitBox) fitBox.style.display = 'none';
     } else if (type === 'image') {
         if (websiteBox) websiteBox.style.display = 'none';
         if (imageBox) imageBox.style.display = 'block';
         if (slideshowBox) slideshowBox.style.display = 'none';
+        if (fitBox) fitBox.style.display = 'block';
     } else if (type === 'slideshow') {
         if (websiteBox) websiteBox.style.display = 'none';
         if (imageBox) imageBox.style.display = 'none';
         if (slideshowBox) slideshowBox.style.display = 'block';
+        if (fitBox) fitBox.style.display = 'block';
     }
 }
 
@@ -166,17 +170,21 @@ function populateMixerOptions() {
 
 function getMonitorTargetObject(monId) {
     const type = document.getElementById(`mixerMon${monId}Type`).value;
+    const fitSelect = document.getElementById(`mixerMon${monId}Fit`);
+    const fit = fitSelect ? fitSelect.value : 'cover';
+
     if (type === 'website') {
         const url = document.getElementById(`mixerMon${monId}Website`).value;
         return { type: 'website', url: url };
     } else if (type === 'image') {
         const img = document.getElementById(`mixerMon${monId}Image`).value;
-        return { type: 'image', image: img };
+        return { type: 'image', image: img, fit: fit };
     } else if (type === 'slideshow') {
         return {
             type: 'slideshow',
-            mode: appState.slideshowConfig.mode,
-            interval: appState.slideshowConfig.interval
+            mode: appState.slideshowConfig.mode || 'random',
+            interval: appState.slideshowConfig.interval || 30,
+            fit: fit
         };
     }
     return { type: 'website', url: '' };
@@ -338,7 +346,8 @@ async function launchSlideshow(monitor = 'both') {
                 mode: 'slideshow',
                 monitor: monitor,
                 interval: appState.slideshowConfig.interval,
-                slideshow_mode: appState.slideshowConfig.mode
+                slideshow_mode: appState.slideshowConfig.mode,
+                fit: appState.slideshowConfig.fit || 'cover'
             })
         });
         const data = await res.json();
@@ -461,7 +470,8 @@ async function displaySingleImage(filename, monitor = 'both') {
         showToast(`Displaying image on ${monitor} monitor(s)...`, 'info');
         const payload = {
             mode: 'image',
-            monitor: monitor
+            monitor: monitor,
+            fit: appState.slideshowConfig.fit || 'cover'
         };
         if (monitor === '1') {
             payload.image1 = filename;
