@@ -9,7 +9,7 @@ export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
 #   Monitor 1 only: [url1]
 #   Monitor 2 only: ['', url2]
 #   Both monitors: [url1, url2]
-DEFAULT_SITE="https://spot.spear.ac"
+DEFAULT_SITE="https://play.autodarts.io/boards/64a51258-5e52-4a97-9311-9cb81bd7e355/follow"
 
 # Parse arguments
 ARG1="${1:-}"

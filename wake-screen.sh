@@ -51,7 +51,7 @@ elif [ "$OUTPUT_COUNT" -eq 1 ]; then
 fi
 
 # Wait a moment for displays to come on
-sleep 1
+sleep 5
 
 # Now start Chromium using the start.sh script
 SCRIPT_TO_RUN="${SCRIPT_PATH:-$HOME/start.sh}"
