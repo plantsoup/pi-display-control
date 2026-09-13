@@ -48,8 +48,18 @@ BLANK_SCREEN_PATH = os.getenv('BLANK_SCREEN_PATH', os.path.join(APP_DIR, "blank-
 WAKE_SCREEN_PATH = os.getenv('WAKE_SCREEN_PATH', os.path.join(APP_DIR, "wake-screen.sh"))
 PORT = int(os.getenv('PORT', 5000))
 
-# Persistent data paths
-DATA_DIR = os.getenv('DATA_DIR', '/data' if os.path.exists('/data') else os.path.join(APP_DIR, 'data'))
+# Persistent data paths with safe write-permission fallback
+def _get_writable_data_dir():
+    custom_data = os.getenv('DATA_DIR')
+    if custom_data:
+        return custom_data
+    # If /data exists and is writable (e.g., inside Docker container)
+    if os.path.exists('/data') and os.access('/data', os.W_OK):
+        return '/data'
+    # Default to local data directory inside project
+    return os.path.join(APP_DIR, 'data')
+
+DATA_DIR = _get_writable_data_dir()
 os.makedirs(DATA_DIR, exist_ok=True)
 
 CONFIG_FILE = os.getenv('CONFIG_FILE', os.path.join(DATA_DIR, "websites.json"))
