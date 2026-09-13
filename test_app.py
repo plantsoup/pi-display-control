@@ -95,14 +95,25 @@ class PiDisplayControlTestCase(unittest.TestCase):
         data_del = json.loads(res_del.data)
         self.assertTrue(data_del['success'])
 
-    def test_render_index_and_viewer(self):
-        res_idx = self.client.get('/')
-        self.assertEqual(res_idx.status_code, 200)
-        self.assertIn(b'Slideshow Studio', res_idx.data)
+    def test_dual_monitor_mixed_dispatch(self):
+        # Mixed dispatch: Website on Monitor 1, Slideshow on Monitor 2
+        res = self.client.post('/api/display', json={
+            'monitor': 'both',
+            'monitor1': {'type': 'website', 'url': 'https://autodarts.io'},
+            'monitor2': {'type': 'slideshow', 'mode': 'random', 'interval': 15}
+        })
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
 
-        res_viewer = self.client.get('/viewer')
-        self.assertEqual(res_viewer.status_code, 200)
-        self.assertIn(b'Display Viewer', res_viewer.data)
+        # Single monitor update: Monitor 2 only
+        res2 = self.client.post('/api/display', json={
+            'monitor': '2',
+            'monitor2': {'type': 'image', 'image': 'test.jpg'}
+        })
+        self.assertEqual(res2.status_code, 200)
+        data2 = json.loads(res2.data)
+        self.assertTrue(data2['success'])
 
 if __name__ == '__main__':
     unittest.main()

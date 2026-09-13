@@ -43,7 +43,11 @@
 
         <!-- Navigation Tabs Bar -->
         <nav class="tab-navigation">
-            <button class="nav-tab active" data-tab="imagesTab">
+            <button class="nav-tab active" data-tab="mixerTab">
+                <span class="tab-icon">🎛️</span>
+                <span>Dual Monitor Mixer</span>
+            </button>
+            <button class="nav-tab" data-tab="imagesTab">
                 <span class="tab-icon">🖼️</span>
                 <span>Image Slideshow & Studio</span>
                 <span class="counter-badge" id="imageCountBadge">0</span>
@@ -63,9 +67,105 @@
         <!-- Main Content Area -->
         <main class="main-container">
             <!-- ========================================================= -->
+            <!-- TAB 0: Dual Monitor Mixer (Independent Screen Control) -->
+            <!-- ========================================================= -->
+            <section id="mixerTab" class="tab-content active">
+                <div class="card mixer-master-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h2>🎛️ Dual Monitor Mixer</h2>
+                            <p class="card-subtext">Control Monitor 1 and Monitor 2 with different websites, slideshows, or images independently</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="applyDualMixer()">
+                            🚀 Apply Both Monitors (Mixed Mode)
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="split-columns" style="grid-template-columns: 1fr 1fr;">
+                            <!-- Monitor 1 Configurator -->
+                            <div class="card monitor-config-card">
+                                <div class="card-header flex-between">
+                                    <h3>🖥️ Monitor 1</h3>
+                                    <button class="btn btn-xs btn-primary" onclick="applySingleMonitor('1')">
+                                        Update Monitor 1 Only
+                                    </button>
+                                </div>
+                                <div class="card-body custom-form">
+                                    <div class="form-group">
+                                        <label for="mixerMon1Type">Display Content Type</label>
+                                        <select id="mixerMon1Type" class="form-select" onchange="onMixerTypeChange('1')">
+                                            <option value="website">🌐 Website / Autodarts</option>
+                                            <option value="slideshow">🖼️ Random / Timed Slideshow</option>
+                                            <option value="image">📸 Single Uploaded Image</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon1WebsiteBox" class="form-group">
+                                        <label for="mixerMon1Website">Choose Website</label>
+                                        <select id="mixerMon1Website" class="form-select">
+                                            <!-- Injected from websites -->
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon1ImageBox" class="form-group" style="display: none;">
+                                        <label for="mixerMon1Image">Choose Image</label>
+                                        <select id="mixerMon1Image" class="form-select">
+                                            <!-- Injected from images -->
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon1SlideshowBox" class="form-group" style="display: none;">
+                                        <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Monitor 2 Configurator -->
+                            <div class="card monitor-config-card">
+                                <div class="card-header flex-between">
+                                    <h3>🖥️ Monitor 2</h3>
+                                    <button class="btn btn-xs btn-primary" onclick="applySingleMonitor('2')">
+                                        Update Monitor 2 Only
+                                    </button>
+                                </div>
+                                <div class="card-body custom-form">
+                                    <div class="form-group">
+                                        <label for="mixerMon2Type">Display Content Type</label>
+                                        <select id="mixerMon2Type" class="form-select" onchange="onMixerTypeChange('2')">
+                                            <option value="slideshow">🖼️ Random / Timed Slideshow</option>
+                                            <option value="website">🌐 Website / Autodarts</option>
+                                            <option value="image">📸 Single Uploaded Image</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon2WebsiteBox" class="form-group" style="display: none;">
+                                        <label for="mixerMon2Website">Choose Website</label>
+                                        <select id="mixerMon2Website" class="form-select">
+                                            <!-- Injected from websites -->
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon2ImageBox" class="form-group" style="display: none;">
+                                        <label for="mixerMon2Image">Choose Image</label>
+                                        <select id="mixerMon2Image" class="form-select">
+                                            <!-- Injected from images -->
+                                        </select>
+                                    </div>
+
+                                    <div id="mixerMon2SlideshowBox" class="form-group">
+                                        <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================================= -->
             <!-- TAB 1: Image Slideshow & Studio -->
             <!-- ========================================================= -->
-            <section id="imagesTab" class="tab-content active">
+            <section id="imagesTab" class="tab-content">
                 <!-- Slideshow Control Console Card -->
                 <div class="card control-console-card">
                     <div class="card-header">

@@ -80,6 +80,7 @@ async function refreshAllData() {
         loadSchedules(),
         fetchLiveStatus()
     ]);
+    populateMixerOptions();
 }
 
 async function fetchLiveStatus() {
@@ -100,6 +101,9 @@ async function fetchLiveStatus() {
             } else if (state.mode === 'website') {
                 badgeText.textContent = `Website Active (${state.monitor || 'both'})`;
                 badge.style.color = '#10b981';
+            } else if (state.mode === 'mixed') {
+                badgeText.textContent = `Mixed Display Active (${state.monitor || 'both'})`;
+                badge.style.color = '#8b5cf6';
             } else {
                 badgeText.textContent = 'Display Active';
                 badge.style.color = '#10b981';
@@ -107,6 +111,132 @@ async function fetchLiveStatus() {
         }
     } catch (err) {
         console.error('Error fetching live status:', err);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Dual Monitor Mixer (Independent Screen Control)
+// -----------------------------------------------------------------------------
+function onMixerTypeChange(monId) {
+    const typeSelect = document.getElementById(`mixerMon${monId}Type`);
+    const websiteBox = document.getElementById(`mixerMon${monId}WebsiteBox`);
+    const imageBox = document.getElementById(`mixerMon${monId}ImageBox`);
+    const slideshowBox = document.getElementById(`mixerMon${monId}SlideshowBox`);
+
+    const type = typeSelect ? typeSelect.value : 'website';
+
+    if (type === 'website') {
+        if (websiteBox) websiteBox.style.display = 'block';
+        if (imageBox) imageBox.style.display = 'none';
+        if (slideshowBox) slideshowBox.style.display = 'none';
+    } else if (type === 'image') {
+        if (websiteBox) websiteBox.style.display = 'none';
+        if (imageBox) imageBox.style.display = 'block';
+        if (slideshowBox) slideshowBox.style.display = 'none';
+    } else if (type === 'slideshow') {
+        if (websiteBox) websiteBox.style.display = 'none';
+        if (imageBox) imageBox.style.display = 'none';
+        if (slideshowBox) slideshowBox.style.display = 'block';
+    }
+}
+
+function populateMixerOptions() {
+    ['1', '2'].forEach(monId => {
+        // Websites dropdown
+        const webSelect = document.getElementById(`mixerMon${monId}Website`);
+        if (webSelect) {
+            webSelect.innerHTML = appState.websites.map(w => 
+                `<option value="${escapeHtml(w.url || '')}">${escapeHtml(w.name)} (${w.url ? escapeHtml(w.url) : 'Autodarts default'})</option>`
+            ).join('');
+        }
+
+        // Images dropdown
+        const imgSelect = document.getElementById(`mixerMon${monId}Image`);
+        if (imgSelect) {
+            if (appState.images.length === 0) {
+                imgSelect.innerHTML = '<option value="">(No uploaded images)</option>';
+            } else {
+                imgSelect.innerHTML = appState.images.map(img => 
+                    `<option value="${escapeHtml(img.filename)}">${escapeHtml(img.name)}</option>`
+                ).join('');
+            }
+        }
+    });
+}
+
+function getMonitorTargetObject(monId) {
+    const type = document.getElementById(`mixerMon${monId}Type`).value;
+    if (type === 'website') {
+        const url = document.getElementById(`mixerMon${monId}Website`).value;
+        return { type: 'website', url: url };
+    } else if (type === 'image') {
+        const img = document.getElementById(`mixerMon${monId}Image`).value;
+        return { type: 'image', image: img };
+    } else if (type === 'slideshow') {
+        return {
+            type: 'slideshow',
+            mode: appState.slideshowConfig.mode,
+            interval: appState.slideshowConfig.interval
+        };
+    }
+    return { type: 'website', url: '' };
+}
+
+async function applyDualMixer() {
+    const target1 = getMonitorTargetObject('1');
+    const target2 = getMonitorTargetObject('2');
+
+    try {
+        showToast('Applying mixed setup to both monitors...', 'info');
+        const res = await fetch('/api/display', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                monitor: 'both',
+                monitor1: target1,
+                monitor2: target2
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Dual monitor setup updated!', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Error applying setup: ' + err.message, 'error');
+    }
+}
+
+async function applySingleMonitor(monId) {
+    const target = getMonitorTargetObject(monId);
+
+    try {
+        showToast(`Updating Monitor ${monId}...`, 'info');
+        const payload = {
+            monitor: monId
+        };
+        if (monId === '1') {
+            payload.monitor1 = target;
+        } else {
+            payload.monitor2 = target;
+        }
+
+        const res = await fetch('/api/display', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Monitor ${monId} updated!`, 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast(`Error updating Monitor ${monId}: ` + err.message, 'error');
     }
 }
 
@@ -133,11 +263,11 @@ function renderSlideshowControls() {
     const randomBtn = document.getElementById('modeRandomBtn');
     const sequentialBtn = document.getElementById('modeSequentialBtn');
     if (cfg.mode === 'random') {
-        randomBtn.classList.add('active');
-        sequentialBtn.classList.remove('active');
+        randomBtn?.classList.add('active');
+        sequentialBtn?.classList.remove('active');
     } else {
-        sequentialBtn.classList.add('active');
-        randomBtn.classList.remove('active');
+        sequentialBtn?.classList.add('active');
+        randomBtn?.classList.remove('active');
     }
 
     // Interval selector
@@ -233,6 +363,7 @@ async function loadImages() {
         appState.images = images;
         document.getElementById('imageCountBadge').textContent = images.length;
         renderImagesGrid();
+        populateMixerOptions();
     } catch (err) {
         showToast('Error loading images: ' + err.message, 'error');
     }
@@ -264,8 +395,14 @@ function renderImagesGrid() {
                 <p>${escapeHtml(img.original_filename || '')}</p>
             </div>
             <div class="image-card-actions">
-                <button class="btn btn-xs btn-primary" onclick="displaySingleImage('${img.filename}')" title="Display this image immediately">
-                    🖥️ Show
+                <button class="btn btn-xs btn-primary" onclick="displaySingleImage('${img.filename}', 'both')" title="Show on both monitors">
+                    🚀 Both
+                </button>
+                <button class="btn btn-xs btn-secondary" onclick="displaySingleImage('${img.filename}', '1')" title="Show on Monitor 1 only">
+                    🖥️ M1
+                </button>
+                <button class="btn btn-xs btn-secondary" onclick="displaySingleImage('${img.filename}', '2')" title="Show on Monitor 2 only">
+                    🖥️ M2
                 </button>
                 <button class="btn btn-xs btn-danger" onclick="deleteImage(${idx})" title="Delete image">
                     🗑️
@@ -307,6 +444,7 @@ async function handleUploadImage(e) {
             appState.images = data.images;
             document.getElementById('imageCountBadge').textContent = data.images.length;
             renderImagesGrid();
+            populateMixerOptions();
         } else {
             showToast('Upload error: ' + data.error, 'error');
         }
@@ -318,21 +456,30 @@ async function handleUploadImage(e) {
     }
 }
 
-async function displaySingleImage(filename) {
+async function displaySingleImage(filename, monitor = 'both') {
     try {
-        showToast(`Displaying ${filename}...`, 'info');
+        showToast(`Displaying image on ${monitor} monitor(s)...`, 'info');
+        const payload = {
+            mode: 'image',
+            monitor: monitor
+        };
+        if (monitor === '1') {
+            payload.image1 = filename;
+        } else if (monitor === '2') {
+            payload.image2 = filename;
+        } else {
+            payload.image1 = filename;
+            payload.image2 = filename;
+        }
+
         const res = await fetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mode: 'image',
-                image1: filename,
-                monitor: 'both'
-            })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
-            showToast('Image displayed on screen', 'success');
+            showToast(`Image displayed on ${monitor} monitor(s)`, 'success');
             fetchLiveStatus();
         } else {
             showToast('Error: ' + data.error, 'error');
@@ -353,6 +500,7 @@ async function deleteImage(index) {
             appState.images = data.images;
             document.getElementById('imageCountBadge').textContent = data.images.length;
             renderImagesGrid();
+            populateMixerOptions();
         } else {
             showToast('Error deleting: ' + data.error, 'error');
         }
@@ -384,6 +532,7 @@ async function loadWebsites() {
         document.getElementById('websiteCountBadge').textContent = websites.length;
         renderWebsitesGrid();
         populateWebsiteOptions();
+        populateMixerOptions();
     } catch (err) {
         showToast('Error loading websites: ' + err.message, 'error');
     }
@@ -468,6 +617,7 @@ async function handleAddWebsite(e) {
             document.getElementById('websiteCountBadge').textContent = data.websites.length;
             renderWebsitesGrid();
             populateWebsiteOptions();
+            populateMixerOptions();
         } else {
             showToast('Error: ' + data.error, 'error');
         }
@@ -482,14 +632,23 @@ async function launchWebsite(index, monitor = 'both') {
 
     try {
         showToast(`Launching ${site.name} on ${monitor} monitor(s)...`, 'info');
+        const payload = {
+            mode: 'website',
+            monitor: monitor
+        };
+        if (monitor === '1') {
+            payload.url1 = site.url || '';
+        } else if (monitor === '2') {
+            payload.url2 = site.url || '';
+        } else {
+            payload.url1 = site.url || '';
+            payload.url2 = site.url || '';
+        }
+
         const res = await fetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mode: 'website',
-                url1: site.url || '',
-                monitor: monitor
-            })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
@@ -515,6 +674,7 @@ async function deleteWebsite(index) {
             document.getElementById('websiteCountBadge').textContent = data.websites.length;
             renderWebsitesGrid();
             populateWebsiteOptions();
+            populateMixerOptions();
         } else {
             showToast('Error: ' + data.error, 'error');
         }

@@ -186,8 +186,38 @@ def get_viewer_url(monitor='both', mode='random', interval=30):
     """Generate the local slideshow viewer URL for kiosk display"""
     return f"http://127.0.0.1:{PORT}/viewer?monitor={monitor}&mode={mode}&interval={interval}"
 
+def _resolve_target(item, monitor_id='1', default_params=None):
+    """Resolve display target (website, single image, slideshow, default) to a URL"""
+    default_params = default_params or {}
+    if isinstance(item, dict):
+        t = item.get('type', 'website')
+        if t == 'website':
+            return item.get('url', item.get('value', '')) or ''
+        elif t == 'image':
+            img = item.get('image', item.get('value', ''))
+            return f"http://127.0.0.1:{PORT}/viewer?single={img}" if img else ""
+        elif t == 'slideshow':
+            mode = item.get('mode', default_params.get('mode', 'random'))
+            interval = item.get('interval', default_params.get('interval', 30))
+            return get_viewer_url(monitor_id, mode, interval)
+        elif t == 'default':
+            return ""
+        return item.get('value', '')
+
+    if not item:
+        return ""
+    if item == 'slideshow':
+        mode = default_params.get('mode', 'random')
+        interval = default_params.get('interval', 30)
+        return get_viewer_url(monitor_id, mode, interval)
+    if item.startswith('http://') or item.startswith('https://') or item.startswith('file://'):
+        return item
+    if any(item.lower().endswith('.' + ext) for ext in ALLOWED_EXTENSIONS):
+        return f"http://127.0.0.1:{PORT}/viewer?single={item}"
+    return item
+
 def trigger_display_action(action_type, params=None):
-    """Unified internal handler for triggering display state changes"""
+    """Unified internal handler for triggering display state changes with dual-monitor mixing"""
     params = params or {}
     global display_state
 
@@ -215,104 +245,72 @@ def trigger_display_action(action_type, params=None):
             return True, "Display woken successfully"
         return False, f"Failed to wake display: {res}"
 
-    elif action_type == "slideshow":
-        monitor = params.get('monitor', 'both')
-        mode = params.get('mode', 'random')
-        interval = params.get('interval', 30)
-        
-        # Save slideshow config if options provided
+    # Handle display routing (website, image, slideshow, dual mix)
+    monitor = params.get('monitor', 'both')
+    
+    # Save slideshow config if options provided
+    if action_type == 'slideshow' or params.get('mode') or params.get('interval'):
         cfg = load_slideshow_config()
         if 'mode' in params:
-            cfg['mode'] = mode
+            cfg['mode'] = params['mode']
         if 'interval' in params:
-            cfg['interval'] = int(interval)
+            try:
+                cfg['interval'] = int(params['interval'])
+            except (ValueError, TypeError):
+                pass
         if 'selected_images' in params:
             cfg['selected_images'] = params['selected_images']
         if 'fit' in params:
             cfg['fit'] = params['fit']
         save_slideshow_config(cfg)
 
-        viewer_url = get_viewer_url(monitor, mode, interval)
+    # Check if monitor 1 and monitor 2 targets are specified explicitly
+    target1_raw = params.get('monitor1') or params.get('target1')
+    target2_raw = params.get('monitor2') or params.get('target2')
 
-        # Build start.sh args
-        cmd = [SCRIPT_PATH]
-        if monitor == '1':
-            cmd.append(viewer_url)
-        elif monitor == '2':
-            cmd.extend(['', viewer_url])
+    if not target1_raw:
+        if action_type == 'slideshow':
+            target1_raw = 'slideshow'
+        elif 'image1' in params or action_type == 'image':
+            target1_raw = {'type': 'image', 'image': params.get('image1', '')}
         else:
-            cmd.extend([viewer_url, viewer_url])
+            target1_raw = {'type': 'website', 'url': params.get('url1', params.get('url', ''))}
 
-        success, res = execute_display_command(cmd)
-        if success:
-            display_state.update({
-                "status": "running",
-                "mode": "slideshow",
-                "monitor": monitor,
-                "updated_at": datetime.now().isoformat(),
-                "last_message": f"Started {mode} image slideshow (interval: {interval}s) on {monitor} monitor(s)"
-            })
-            return True, display_state["last_message"]
-        return False, f"Failed to start slideshow: {res}"
-
-    elif action_type == "website":
-        url1 = params.get('url1', '')
-        url2 = params.get('url2', None)
-        monitor = params.get('monitor', 'both')
-
-        cmd = [SCRIPT_PATH]
-        if monitor == '1':
-            cmd.append(url1)
-        elif monitor == '2':
-            cmd.extend(['', url2 if url2 is not None else url1])
+    if not target2_raw:
+        if action_type == 'slideshow':
+            target2_raw = 'slideshow'
+        elif 'image2' in params and params.get('image2'):
+            target2_raw = {'type': 'image', 'image': params.get('image2', '')}
+        elif 'url2' in params and params.get('url2') is not None:
+            target2_raw = {'type': 'website', 'url': params.get('url2', '')}
         else:
-            cmd.append(url1)
-            if url2 is not None:
-                cmd.append(url2)
-            elif url1:
-                cmd.append(url1)
+            target2_raw = target1_raw
 
-        success, res = execute_display_command(cmd)
-        if success:
-            display_state.update({
-                "status": "running",
-                "mode": "website",
-                "monitor": monitor,
-                "updated_at": datetime.now().isoformat(),
-                "last_message": f"Started website display on {monitor} monitor(s)"
-            })
-            return True, display_state["last_message"]
-        return False, f"Failed to start website: {res}"
+    url1 = _resolve_target(target1_raw, '1', params)
+    url2 = _resolve_target(target2_raw, '2', params)
 
-    elif action_type == "image":
-        image1 = params.get('image1', '')
-        image2 = params.get('image2', None)
-        monitor = params.get('monitor', 'both')
+    cmd = [SCRIPT_PATH]
+    if monitor == '1':
+        cmd.append(url1)
+        msg = "Updated Monitor 1"
+    elif monitor == '2':
+        cmd.extend(['', url2])
+        msg = "Updated Monitor 2"
+    else:
+        cmd.extend([url1, url2])
+        msg = "Updated both monitors with selected configuration"
 
-        url1 = f"http://127.0.0.1:{PORT}/viewer?single={image1}" if image1 else ""
-        url2 = f"http://127.0.0.1:{PORT}/viewer?single={image2}" if image2 else url1
-
-        cmd = [SCRIPT_PATH]
-        if monitor == '1':
-            cmd.append(url1)
-        elif monitor == '2':
-            cmd.extend(['', url2])
-        else:
-            cmd.extend([url1, url2])
-
-        success, res = execute_display_command(cmd)
-        if success:
-            display_state.update({
-                "status": "running",
-                "mode": "image",
-                "monitor": monitor,
-                "updated_at": datetime.now().isoformat(),
-                "last_message": f"Displaying image on {monitor} monitor(s)"
-            })
-            return True, display_state["last_message"]
-        return False, f"Failed to display image: {res}"
-
-    return False, f"Unknown action type: {action_type}"
+    success, res = execute_display_command(cmd)
+    if success:
+        display_state.update({
+            "status": "running",
+            "mode": action_type if action_type in ['slideshow', 'website', 'image'] else 'mixed',
+            "monitor": monitor,
+            "updated_at": datetime.now().isoformat(),
+            "last_message": msg
+        })
+        return True, msg
+    return False, f"Failed to start display: {res}"
 
 # ----------------------------------------------------------------------
 # Background Time Scheduler

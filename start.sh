@@ -42,10 +42,16 @@ else
     USE_MONITOR2=true
 fi
 
-# Kill any existing Chromium instances
-pkill -9 -f chromium
+# Selectively kill existing Chromium instance(s)
+if [ "$USE_MONITOR1" = true ] && [ "$USE_MONITOR2" = true ]; then
+    pkill -9 -f chromium
+elif [ "$USE_MONITOR1" = true ]; then
+    pkill -9 -f "chromium-autodarts-monitor1"
+elif [ "$USE_MONITOR2" = true ]; then
+    pkill -9 -f "chromium-autodarts-monitor2"
+fi
 
-# Fix Chromium crash state for all user data directories
+# Fix Chromium crash state for user data directories
 PREFS1="$HOME/.config/chromium-autodarts-monitor1/Default/Preferences"
 PREFS2="$HOME/.config/chromium-autodarts-monitor2/Default/Preferences"
 PREFS_SINGLE="$HOME/.config/chromium-autodarts/Default/Preferences"
