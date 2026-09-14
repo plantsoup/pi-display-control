@@ -2,7 +2,7 @@
 
 # X display setup
 export DISPLAY=:0
-export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
+export XAUTHORITY=/home/gavinspear/.Xauthority
 
 # Turn displays back on using vcgencmd (Raspberry Pi specific)
 sudo vcgencmd display_power 1 2>/dev/null || vcgencmd display_power 1 2>/dev/null
@@ -37,7 +37,7 @@ if [ "$OUTPUT_COUNT" -eq 2 ]; then
     MONITOR1_ORIG_HEIGHT=$(echo "$RES1" | cut -d'x' -f2)
     MONITOR1_ROTATED_WIDTH=$MONITOR1_ORIG_HEIGHT
     
-    xrandr --output "$OUTPUT2" --auto --mode "$RES2" --pos "${MONITOR1_ROTATED_WIDTH}x0" --rotate left
+    xrandr --output "$OUTPUT2" --auto --mode "$RES2" --pos "${MONITOR1_ROTATED_WIDTH}x0" --rotate right
     sleep 1
 elif [ "$OUTPUT_COUNT" -eq 1 ]; then
     # Single monitor
@@ -51,15 +51,7 @@ elif [ "$OUTPUT_COUNT" -eq 1 ]; then
 fi
 
 # Wait a moment for displays to come on
-sleep 5
+sleep 1
 
 # Now start Chromium using the start.sh script
-SCRIPT_TO_RUN="${SCRIPT_PATH:-$HOME/start.sh}"
-if [ ! -f "$SCRIPT_TO_RUN" ] && [ -f "$(dirname "$0")/start.sh" ]; then
-    SCRIPT_TO_RUN="$(dirname "$0")/start.sh"
-fi
-
-if [ -f "$SCRIPT_TO_RUN" ]; then
-    "$SCRIPT_TO_RUN"
-fi
-
+~/start.sh
