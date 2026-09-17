@@ -1,0 +1,42 @@
+/* ==========================================================================
+   Design Tokens & CSS Variables
+   ========================================================================== */
+
+:root {
+    --bg-main: #0a0d14;
+    --bg-surface: #121826;
+    --bg-surface-elevated: #192237;
+    --bg-surface-hover: #222d47;
+    --bg-input: #0e1422;
+    
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --primary-glow: rgba(99, 102, 241, 0.35);
+    
+    --success: #10b981;
+    --success-hover: #059669;
+    --success-glow: rgba(16, 185, 129, 0.35);
+    
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-glow: rgba(239, 68, 68, 0.35);
+    
+    --warning: #f59e0b;
+    --accent: #8b5cf6;
+    
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-faint: #64748b;
+    
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-color-focus: rgba(99, 102, 241, 0.5);
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
