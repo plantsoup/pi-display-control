@@ -181,5 +181,27 @@ class PiDisplayControlTestCase(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
+    def test_modular_package_structure(self):
+        """Verify new modular packages can be imported directly"""
+        import display
+        import display.browser
+        import display.monitors
+        import display.power
+        import display.window
+        import display.manager
+        import services.storage
+        import services.display_service
+        import services.scheduler
+        import routes.views
+        import routes.api_display
+        import routes.api_media
+        import routes.api_schedules
+
+        self.assertTrue(callable(display.start_display))
+        self.assertTrue(callable(display.blank_screen))
+        self.assertTrue(callable(services.storage.load_websites))
+        self.assertTrue(callable(services.display_service.trigger_display_action))
+
 if __name__ == '__main__':
     unittest.main()
+
