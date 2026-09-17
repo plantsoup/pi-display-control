@@ -138,5 +138,48 @@ class PiDisplayControlTestCase(unittest.TestCase):
         res = self.client.get('/viewer?monitor=1&mode=random&interval=30&fit=cover')
         self.assertEqual(res.status_code, 200)
 
+    def test_display_blank_and_wake_endpoints(self):
+        # Test DELETE /api/display (Blank)
+        res_blank = self.client.delete('/api/display')
+        self.assertEqual(res_blank.status_code, 200)
+        data_blank = json.loads(res_blank.data)
+        self.assertTrue(data_blank['success'])
+        self.assertEqual(data_blank['state']['status'], 'blank')
+
+        # Test POST /api/display/wake (Wake)
+        res_wake = self.client.post('/api/display/wake')
+        self.assertEqual(res_wake.status_code, 200)
+        data_wake = json.loads(res_wake.data)
+        self.assertTrue(data_wake['success'])
+        self.assertEqual(data_wake['state']['status'], 'running')
+
+    def test_display_manager_preferences_fix(self):
+        import display_manager
+        import tempfile
+        import shutil
+        
+        temp_dir = tempfile.mkdtemp()
+        try:
+            default_dir = os.path.join(temp_dir, "Default")
+            os.makedirs(default_dir, exist_ok=True)
+            prefs_path = os.path.join(default_dir, "Preferences")
+            with open(prefs_path, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "profile": {
+                        "exit_type": "Crashed",
+                        "exited_cleanly": False
+                    }
+                }, f)
+
+            display_manager.fix_chromium_preferences(temp_dir)
+
+            with open(prefs_path, 'r', encoding='utf-8') as f:
+                fixed_data = json.load(f)
+
+            self.assertEqual(fixed_data["profile"]["exit_type"], "Normal")
+            self.assertTrue(fixed_data["profile"]["exited_cleanly"])
+        finally:
+            shutil.rmtree(temp_dir)
+
 if __name__ == '__main__':
     unittest.main()

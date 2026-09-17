@@ -74,9 +74,30 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 | :--- | :--- | :--- |
 | `PORT` | `5000` | HTTP server listening port |
 | `DATA_DIR` | `/data` or `./data` | Directory for JSON data and uploaded image storage |
-| `SCRIPT_PATH` | `./start.sh` | Path to the monitor launcher script |
-| `BLANK_SCREEN_PATH` | `./blank-screen.sh` | Path to the screen blanking script |
-| `WAKE_SCREEN_PATH` | `./wake-screen.sh` | Path to the screen waking script |
+| `WORK_DIR` | `~` | Home/working directory for user configs |
+
+---
+
+## Standalone CLI Display Control
+
+All display controls can also be triggered directly from Python CLI without running the web server:
+
+```bash
+# Start or update display
+python3 display_manager.py start "https://play.autodarts.io" "https://example.com"
+
+# Blank/power off screens
+python3 display_manager.py blank
+
+# Wake/power on screens
+python3 display_manager.py wake
+
+# Toggle monitor 2 vertical/horizontal rotation
+python3 display_manager.py toggle-monitor2 --restart
+
+# Check connected monitors
+python3 display_manager.py status
+```
 
 ---
 

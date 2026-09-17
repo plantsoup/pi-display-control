@@ -36,6 +36,8 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
+import display_manager
+
 app = Flask(__name__)
 
 # Directory setup
@@ -43,9 +45,6 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Configuration with environment variable overrides
 HOME_DIR = os.getenv('WORK_DIR', os.path.expanduser("~"))
-SCRIPT_PATH = os.getenv('SCRIPT_PATH', os.path.join(APP_DIR, "start.sh"))
-BLANK_SCREEN_PATH = os.getenv('BLANK_SCREEN_PATH', os.path.join(APP_DIR, "blank-screen.sh"))
-WAKE_SCREEN_PATH = os.getenv('WAKE_SCREEN_PATH', os.path.join(APP_DIR, "wake-screen.sh"))
 PORT = int(os.getenv('PORT', 5000))
 
 # Persistent data paths with safe write-permission fallback
@@ -167,21 +166,6 @@ def allowed_file(filename):
 # Display Script Execution Helpers
 # ----------------------------------------------------------------------
 
-def execute_display_command(cmd, log_name="display"):
-    """Execute shell command in background"""
-    if not os.path.exists(cmd[0]):
-        return False, f"Script not found at {cmd[0]}"
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=APP_DIR
-        )
-        return True, process.pid
-    except Exception as e:
-        return False, str(e)
-
 def get_viewer_url(monitor='both', mode='random', interval=30, fit=None):
     """Generate the local slideshow viewer URL for kiosk display"""
     clean_mode = mode if mode in ['random', 'sequential'] else 'random'
@@ -239,7 +223,7 @@ def trigger_display_action(action_type, params=None):
     global display_state
 
     if action_type == "blank":
-        success, res = execute_display_command([BLANK_SCREEN_PATH])
+        success, res = display_manager.blank_screen()
         if success:
             display_state.update({
                 "status": "blank",
@@ -251,7 +235,7 @@ def trigger_display_action(action_type, params=None):
         return False, f"Failed to blank display: {res}"
 
     elif action_type == "wake":
-        success, res = execute_display_command([WAKE_SCREEN_PATH])
+        success, res = display_manager.wake_screen()
         if success:
             display_state.update({
                 "status": "running",
@@ -308,18 +292,14 @@ def trigger_display_action(action_type, params=None):
     url1 = _resolve_target(target1_raw, '1', params)
     url2 = _resolve_target(target2_raw, '2', params)
 
-    cmd = [SCRIPT_PATH]
     if monitor == '1':
-        cmd.append(url1)
         msg = "Updated Monitor 1"
     elif monitor == '2':
-        cmd.extend(['', url2])
         msg = "Updated Monitor 2"
     else:
-        cmd.extend([url1, url2])
         msg = "Updated both monitors with selected configuration"
 
-    success, res = execute_display_command(cmd)
+    success, res = display_manager.start_display(url1=url1, url2=url2, monitor=monitor)
     if success:
         display_state.update({
             "status": "running",
@@ -709,5 +689,5 @@ if __name__ == '__main__':
     print(f"🚀 Starting Pi Display Control Server on port {PORT}...")
     print(f"📁 Data directory: {DATA_DIR}")
     print(f"🖼️ Uploads directory: {UPLOAD_FOLDER}")
-    print(f"⚙️ Scripts: start={SCRIPT_PATH}, blank={BLANK_SCREEN_PATH}, wake={WAKE_SCREEN_PATH}")
+    print(f"⚙️ Display Engine: Python display_manager")
     app.run(host='0.0.0.0', port=PORT, debug=debug)
