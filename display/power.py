@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from .browser import get_x_env, kill_chromium
 from .monitors import get_connected_monitors
-from .manager import start_display, DEFAULT_AUTODARTS_URL
+from .manager import start_display, DEFAULT_AUTODARTS_URL, DEFAULT_AUTODARTS_URL2
 
 def _set_display_power(power_on=True):
     """Attempt hardware display power control via vcgencmd without blocking on sudo password"""
@@ -89,7 +89,7 @@ def toggle_monitor2(restart_chromium=False, site=None):
     if restart_chromium:
         kill_chromium("2")
         time.sleep(1)
-        target_site = site if site else DEFAULT_AUTODARTS_URL
+        target_site = site if site else DEFAULT_AUTODARTS_URL2
         start_display(url2=target_site, monitor="2")
 
     return True, f"Monitor 2 rotation toggled to {new_rotation}"

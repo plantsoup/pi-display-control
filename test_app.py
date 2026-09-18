@@ -199,6 +199,7 @@ class PiDisplayControlTestCase(unittest.TestCase):
 
         self.assertTrue(callable(display.start_display))
         self.assertTrue(callable(display.blank_screen))
+        self.assertEqual(display.DEFAULT_AUTODARTS_URL2, "https://spotifyr.spear.ac")
         self.assertTrue(callable(services.storage.load_websites))
         self.assertTrue(callable(services.display_service.trigger_display_action))
 

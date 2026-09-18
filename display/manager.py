@@ -10,6 +10,7 @@ from .monitors import get_connected_monitors
 from .window import get_xdotool_windows, position_window
 
 DEFAULT_AUTODARTS_URL = "https://play.autodarts.io/boards/64a51258-5e52-4a97-9311-9cb81bd7e355/follow"
+DEFAULT_AUTODARTS_URL2 = "https://spotifyr.spear.ac"
 
 def start_display(url1="", url2="", monitor="both"):
     """
@@ -21,7 +22,7 @@ def start_display(url1="", url2="", monitor="both"):
 
     # Determine URLs
     site1 = url1 if url1 else DEFAULT_AUTODARTS_URL
-    site2 = url2 if url2 else (url1 if url1 else DEFAULT_AUTODARTS_URL)
+    site2 = url2 if url2 else (url1 if url1 else DEFAULT_AUTODARTS_URL2)
 
     use_m1 = monitor in ["1", "both"]
     use_m2 = monitor in ["2", "both"]

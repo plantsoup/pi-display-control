@@ -12,7 +12,7 @@ from .browser import (
 )
 from .monitors import get_connected_monitors
 from .window import get_xdotool_windows, position_window
-from .manager import start_display, DEFAULT_AUTODARTS_URL
+from .manager import start_display, DEFAULT_AUTODARTS_URL, DEFAULT_AUTODARTS_URL2
 from .power import blank_screen, wake_screen, toggle_monitor2, _set_display_power
 
 __all__ = [
@@ -27,5 +27,6 @@ __all__ = [
     'blank_screen',
     'wake_screen',
     'toggle_monitor2',
-    'DEFAULT_AUTODARTS_URL'
+    'DEFAULT_AUTODARTS_URL',
+    'DEFAULT_AUTODARTS_URL2'
 ]

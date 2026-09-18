@@ -17,7 +17,8 @@ from display import (
     blank_screen,
     wake_screen,
     toggle_monitor2,
-    DEFAULT_AUTODARTS_URL
+    DEFAULT_AUTODARTS_URL,
+    DEFAULT_AUTODARTS_URL2
 )
 
 # ----------------------------------------------------------------------
