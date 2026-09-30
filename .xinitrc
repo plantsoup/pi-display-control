@@ -24,9 +24,11 @@ sleep 3
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$APP_DIR/display_manager.py" ]; then
     python3 "$APP_DIR/display_manager.py" wake
+elif [ -f "$HOME/pi-display-control/display_manager.py" ]; then
+    python3 "$HOME/pi-display-control/display_manager.py" wake
 else
-    # Fallback to hardcoded path if needed
-    python3 /Users/gavinspear/pi-display-control-1/display_manager.py wake
+    # Fallback to current directory
+    python3 display_manager.py wake
 fi
 
 # Keep the session running
