@@ -72,11 +72,13 @@ def start_display(url1="", url2="", monitor="both"):
                 site1
             ]
             _launch_chromium_process(cmd1, env)
-            if existing_win:
-                position_window(existing_win, m1["pos_x"], m1["pos_y"], m1["width"], m1["height"])
+            # Always position — existing_win may be empty on a fresh start, that's fine
+            position_window(existing_win, m1["pos_x"], m1["pos_y"], m1["width"], m1["height"])
 
-        # Launch Monitor 2
+        # Launch Monitor 2 — slight delay so window IDs don't collide with monitor 1
         if use_m2:
+            import time as _time
+            _time.sleep(1)
             os.makedirs(user_data_m2, exist_ok=True)
             existing_win = get_xdotool_windows()
             cmd2 = [
@@ -89,8 +91,8 @@ def start_display(url1="", url2="", monitor="both"):
                 site2
             ]
             _launch_chromium_process(cmd2, env)
-            if existing_win:
-                position_window(existing_win, pos_x2, pos_y2, m2["width"], m2["height"])
+            # Always position
+            position_window(existing_win, pos_x2, pos_y2, m2["width"], m2["height"])
 
     else:
         # Single monitor
