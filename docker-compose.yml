@@ -1,5 +1,6 @@
 services:
   pi-display-control:
+    image: spearg/pi-display-control:latest
     build: .
     container_name: pi-display-control
     restart: unless-stopped
