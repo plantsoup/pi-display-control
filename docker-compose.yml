@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   pi-display-control:
     build: .
@@ -12,7 +10,7 @@ services:
     environment:
       - DISPLAY=:0
       - DATA_DIR=/data
-      - PORT=5000
+      - PORT=5050
     volumes:
       # Persistent storage for uploaded images and JSON configs
       - ./data:/data
