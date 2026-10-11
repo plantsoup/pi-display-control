@@ -1,17 +1,35 @@
+
 #!/bin/sh
 
-# xinitrc for Raspberry Pi
-# Sets up the X11 environment for the Docker container to connect to.
-# The Docker container handles launching Chromium via the mounted X11 socket.
+# xinitrc for Raspberry Pi - Display play.autodarts.io
+# Supports 1 or 2 monitors with separate Chromium instances
+# Designed for headless operation with VNC
 
-# Disable screen blanking / DPMS so monitors stay on
-xset s off
-xset s noblank
-xset -dpms
+# Set display environment
+export DISPLAY=:0
 
-# Allow local and Docker container connections to the X server
-xhost +local:root
-xhost +local:docker
+# Start window manager (optional, but useful for VNC)
+# Using openbox for lightweight window management
+if command -v openbox >/dev/null 2>&1; then
+    openbox &
+elif command -v fluxbox >/dev/null 2>&1; then
+    fluxbox &
+fi
 
-# Keep the X session alive indefinitely — Docker container does the rest
-exec tail -f /dev/null
+# Wait for network to be ready
+sleep 3
+
+# Delegate monitor configuration and browser launch to the Python manager
+# This ensures consistency with the web UI's "wake" command
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$APP_DIR/display_manager.py" ]; then
+    python3 "$APP_DIR/display_manager.py" wake
+elif [ -f "$HOME/pi-display-control/display_manager.py" ]; then
+    python3 "$HOME/pi-display-control/display_manager.py" wake
+else
+    # Fallback to current directory
+    python3 display_manager.py wake
+fi
+
+# Keep the session running
+wait

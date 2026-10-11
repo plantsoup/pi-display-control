@@ -101,36 +101,9 @@ python3 display_manager.py status
 
 ---
 
-## Docker Deployment
-
-To build and run the entire suite with Docker (including physical multi-monitor X11 kiosk control):
-
-1. **Permit container access to X11** (run once per desktop session on the Pi):
-   ```bash
-   xhost +local:root
-   ```
-
-2. **Start the container via Docker Compose:**
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. **Check container logs:**
-   ```bash
-   docker compose logs -f
-   ```
-
-4. **Stop the container:**
-   ```bash
-   docker compose down
-   ```
-
----
-
 ## Testing
 
 Run the automated test suite:
 ```bash
 python3 test_app.py
 ```
-
