@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  pi-display-control:
+    build: .
+    container_name: pi-display-control
+    restart: unless-stopped
+    # Use host networking for low-latency web access and local X11 communication
+    network_mode: host
+    ipc: host
+    privileged: true
+    environment:
+      - DISPLAY=:0
+      - DATA_DIR=/data
+      - PORT=5000
+    volumes:
+      # Persistent storage for uploaded images and JSON configs
+      - ./data:/data
+      # X11 Socket & Authority to render and position windows on the physical Pi monitors
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.Xauthority:/root/.Xauthority:ro

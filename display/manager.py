@@ -41,6 +41,10 @@ def start_display(url1="", url2="", monitor="both"):
 
     monitors = get_connected_monitors()
 
+    extra_flags = []
+    if (hasattr(os, 'geteuid') and os.geteuid() == 0) or os.getenv("CHROMIUM_NO_SANDBOX") == "1":
+        extra_flags.append("--no-sandbox")
+
     if len(monitors) >= 2:
         m1 = monitors[0]
         m2 = monitors[1]
@@ -60,6 +64,7 @@ def start_display(url1="", url2="", monitor="both"):
             existing_win = get_xdotool_windows()
             cmd1 = [
                 chromium_cmd,
+                *extra_flags,
                 "--kiosk",
                 "--disable-session-crashed-bubble",
                 "--disable-breakpad",
@@ -76,6 +81,7 @@ def start_display(url1="", url2="", monitor="both"):
             existing_win = get_xdotool_windows()
             cmd2 = [
                 chromium_cmd,
+                *extra_flags,
                 "--kiosk",
                 "--disable-session-crashed-bubble",
                 "--disable-breakpad",
@@ -95,6 +101,7 @@ def start_display(url1="", url2="", monitor="both"):
 
         cmd = [
             chromium_cmd,
+            *extra_flags,
             "--kiosk",
             "--disable-session-crashed-bubble",
             "--disable-breakpad",

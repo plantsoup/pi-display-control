@@ -1,4 +1,3 @@
-
 #!/bin/sh
 
 # xinitrc for Raspberry Pi - Display play.autodarts.io
@@ -7,6 +6,7 @@
 
 # Set display environment
 export DISPLAY=:0
+xhost +local:root &
 
 # Start window manager (optional, but useful for VNC)
 # Using openbox for lightweight window management
