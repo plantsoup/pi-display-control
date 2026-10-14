@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Base Layout, Header, and Global Elements
+   Base Layout, Header, Layout Grid & Global Typography
    ========================================================================== */
 
 * {
@@ -11,6 +11,10 @@
 body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--bg-main);
+    background-image: 
+        radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.04) 0%, transparent 40%);
+    background-attachment: fixed;
     color: var(--text-main);
     min-height: 100vh;
     line-height: 1.5;
@@ -19,96 +23,166 @@ body {
 
 /* App Container Layout */
 .app-layout {
-    max-width: 1360px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
 }
 
 /* Header */
 .app-header {
-    background: linear-gradient(135deg, #161f36 0%, #111728 100%);
+    background: rgba(18, 24, 38, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
-    padding: 24px 32px;
+    padding: 18px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 16px;
 }
 
 .header-brand {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
 }
 
+/* Sleek, toned-down brand logo */
 .brand-icon {
-    font-size: 38px;
-    background: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    width: 64px;
-    height: 64px;
-    border-radius: var(--radius-lg);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.brand-icon:hover {
+    color: #f1f5f9;
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+.brand-icon .svg-icon {
+    width: 22px;
+    height: 22px;
 }
 
 .brand-info h1 {
-    font-size: 1.65rem;
-    font-weight: 800;
+    font-size: 1.35rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #ffffff;
+    line-height: 1.2;
 }
 
 .brand-info .subtitle {
-    font-size: 0.88rem;
+    font-size: 0.82rem;
     color: var(--text-muted);
     margin-top: 2px;
+    font-weight: 450;
+    line-height: 1.2;
 }
 
+/* Live Status & Quick Actions - aligned to sub-description baseline */
 .header-status-panel {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
+/* Harmonized status indicator badge */
 .status-indicator-badge {
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    color: var(--success);
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 500;
     display: flex;
     align-items: center;
     gap: 8px;
+    backdrop-filter: blur(8px);
+    transition: all 0.25s ease;
 }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--success);
-    box-shadow: 0 0 10px var(--success);
+    background: #64748b;
+    box-shadow: 0 0 6px #64748b;
+    flex-shrink: 0;
+}
+
+.status-dot.active {
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+    animation: pulseGlow 2s infinite;
+}
+
+.status-dot.blank {
+    background: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+}
+
+.status-dot.slideshow {
+    background: #6366f1;
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
     animation: pulseGlow 2s infinite;
 }
 
 @keyframes pulseGlow {
     0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
+    50% { opacity: 0.45; transform: scale(0.85); }
 }
 
 .header-quick-actions {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Workspace layout: Sidebar on the left + Main Container */
+.app-workspace {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    .app-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Main Container */
+.main-container {
+    min-width: 0; /* Prevents grid blowout */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Global SVG icon styling */
+.svg-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
 }

@@ -12,23 +12,34 @@ export async function fetchLiveStatus() {
             const state = data.state;
             const badgeText = document.getElementById('liveStatusText');
             const badge = document.getElementById('liveStatusBadge');
+            const dot = badge ? badge.querySelector('.status-dot') : null;
             if (!badgeText || !badge) return;
 
             if (state.status === 'blank') {
                 badgeText.textContent = 'Screens Off (Blanked)';
-                badge.style.color = '#ef4444';
+                if (dot) {
+                    dot.className = 'status-dot blank';
+                }
             } else if (state.mode === 'slideshow') {
                 badgeText.textContent = `Slideshow Active (${state.monitor || 'both'})`;
-                badge.style.color = '#6366f1';
+                if (dot) {
+                    dot.className = 'status-dot slideshow';
+                }
             } else if (state.mode === 'website') {
                 badgeText.textContent = `Website Active (${state.monitor || 'both'})`;
-                badge.style.color = '#10b981';
+                if (dot) {
+                    dot.className = 'status-dot active';
+                }
             } else if (state.mode === 'mixed') {
-                badgeText.textContent = `Mixed Display Active (${state.monitor || 'both'})`;
-                badge.style.color = '#8b5cf6';
+                badgeText.textContent = `Mixed Display (${state.monitor || 'both'})`;
+                if (dot) {
+                    dot.className = 'status-dot active';
+                }
             } else {
                 badgeText.textContent = 'Display Active';
-                badge.style.color = '#10b981';
+                if (dot) {
+                    dot.className = 'status-dot active';
+                }
             }
         }
     } catch (err) {

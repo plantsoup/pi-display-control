@@ -1,9 +1,10 @@
 /**
- * Dual Monitor Mixer (Independent Screen Control)
+ * Dual Monitor Mixer (Independent Screen Control & Live Previews)
  */
 
 import { appState, showToast, escapeHtml } from './state.js';
 import { fetchLiveStatus } from './display.js';
+import { getIcon } from './icons.js';
 
 export function onMixerTypeChange(monId) {
     const typeSelect = document.getElementById(`mixerMon${monId}Type`);
@@ -30,6 +31,77 @@ export function onMixerTypeChange(monId) {
         if (slideshowBox) slideshowBox.style.display = 'block';
         if (fitBox) fitBox.style.display = 'block';
     }
+
+    updateMixerPreview(monId);
+}
+
+export function updateMixerPreview(monId) {
+    const screen = document.getElementById(`mon${monId}PreviewScreen`);
+    const title = document.getElementById(`mon${monId}PreviewTitle`);
+    const typeSelect = document.getElementById(`mixerMon${monId}Type`);
+    if (!screen) return;
+
+    const type = typeSelect ? typeSelect.value : 'website';
+
+    if (type === 'website') {
+        const webSelect = document.getElementById(`mixerMon${monId}Website`);
+        const url = webSelect ? webSelect.value : '';
+        const selectedOption = webSelect && webSelect.selectedIndex >= 0 ? webSelect.options[webSelect.selectedIndex] : null;
+        const siteName = selectedOption ? selectedOption.getAttribute('data-name') || selectedOption.textContent.split('(')[0].trim() : 'Website';
+
+        if (title) title.innerHTML = `${getIcon('globe')} Website: ${escapeHtml(siteName)}`;
+
+        screen.innerHTML = `
+            <div class="preview-website-view">
+                <div class="preview-website-icon">
+                    ${getIcon('globe')}
+                </div>
+                <div class="preview-website-name">${escapeHtml(siteName)}</div>
+                <div class="preview-website-url">${escapeHtml(url || 'Autodarts Kiosk')}</div>
+            </div>
+            <div class="preview-screen-overlay"></div>
+        `;
+    } else if (type === 'image') {
+        const imgSelect = document.getElementById(`mixerMon${monId}Image`);
+        const fitSelect = document.getElementById(`mixerMon${monId}Fit`);
+        const filename = imgSelect ? imgSelect.value : '';
+        const fit = fitSelect ? fitSelect.value : 'cover';
+        const selectedOption = imgSelect && imgSelect.selectedIndex >= 0 ? imgSelect.options[imgSelect.selectedIndex] : null;
+        const imgName = selectedOption ? selectedOption.textContent : 'Image';
+
+        if (title) title.innerHTML = `${getIcon('image')} Single Image: ${escapeHtml(imgName)}`;
+
+        if (filename) {
+            screen.innerHTML = `
+                <img src="/api/images/${escapeHtml(filename)}" class="preview-img-element fit-${fit}" alt="${escapeHtml(imgName)}">
+                <div class="preview-screen-overlay"></div>
+            `;
+        } else {
+            screen.innerHTML = `
+                <div class="preview-website-view">
+                    <div class="preview-website-icon">${getIcon('image')}</div>
+                    <div class="preview-website-name">No Image Selected</div>
+                </div>
+                <div class="preview-screen-overlay"></div>
+            `;
+        }
+    } else if (type === 'slideshow') {
+        const cfg = appState.slideshowConfig || {};
+        const mode = cfg.mode || 'random';
+        const interval = cfg.interval || 30;
+        const imageCount = appState.images.length;
+
+        if (title) title.innerHTML = `${getIcon('shuffle')} Slideshow Studio`;
+
+        screen.innerHTML = `
+            <div class="preview-slideshow-view">
+                ${getIcon('image')}
+                <div class="preview-slideshow-title">Slideshow (${mode})</div>
+                <div class="preview-slideshow-pill">${interval}s rotation &bull; ${imageCount} items</div>
+            </div>
+            <div class="preview-screen-overlay"></div>
+        `;
+    }
 }
 
 export function populateMixerOptions() {
@@ -38,8 +110,9 @@ export function populateMixerOptions() {
         const webSelect = document.getElementById(`mixerMon${monId}Website`);
         if (webSelect) {
             webSelect.innerHTML = appState.websites.map(w => 
-                `<option value="${escapeHtml(w.url || '')}">${escapeHtml(w.name)} (${w.url ? escapeHtml(w.url) : 'Autodarts default'})</option>`
+                `<option value="${escapeHtml(w.url || '')}" data-name="${escapeHtml(w.name)}">${escapeHtml(w.name)} (${w.url ? escapeHtml(w.url) : 'Autodarts default'})</option>`
             ).join('');
+            webSelect.onchange = () => updateMixerPreview(monId);
         }
 
         // Images dropdown
@@ -52,7 +125,17 @@ export function populateMixerOptions() {
                     `<option value="${escapeHtml(img.filename)}">${escapeHtml(img.name)}</option>`
                 ).join('');
             }
+            imgSelect.onchange = () => updateMixerPreview(monId);
         }
+
+        // Fit dropdown
+        const fitSelect = document.getElementById(`mixerMon${monId}Fit`);
+        if (fitSelect) {
+            fitSelect.onchange = () => updateMixerPreview(monId);
+        }
+
+        // Initialize preview
+        updateMixerPreview(monId);
     });
 }
 

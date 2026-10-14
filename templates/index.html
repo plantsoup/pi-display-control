@@ -14,368 +14,526 @@
         <!-- Top Navigation Header -->
         <header class="app-header">
             <div class="header-brand">
-                <div class="brand-icon">🖥️</div>
+                <div class="brand-icon" title="Pi Display Controller">
+                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="20" height="14" x="2" y="3" rx="2"/>
+                        <line x1="8" x2="16" y1="21" y2="21"/>
+                        <line x1="12" x2="12" y1="17" y2="21"/>
+                    </svg>
+                </div>
                 <div class="brand-info">
                     <h1>Pi Display Control</h1>
                     <p class="subtitle">Multi-Monitor Display, Image Slideshow & Automation Engine</p>
                 </div>
             </div>
 
-            <!-- Live Status & Quick Actions -->
+            <!-- Live Status & Harmonized Header Actions -->
             <div class="header-status-panel">
                 <div class="status-indicator-badge" id="liveStatusBadge">
                     <span class="status-dot"></span>
                     <span id="liveStatusText">Checking status...</span>
                 </div>
                 <div class="header-quick-actions">
-                    <button id="wakeDisplay" class="btn btn-sm btn-success" title="Turn screen on">
-                        <span class="icon">☀️</span> Wake Screen
+                    <button id="wakeDisplay" class="btn btn-sm btn-neutral" title="Turn screen on">
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                        </svg>
+                        <span>Wake Screen</span>
                     </button>
-                    <button id="stopDisplay" class="btn btn-sm btn-danger" title="Turn screen off">
-                        <span class="icon">🌙</span> Blank Screen
+                    <button id="stopDisplay" class="btn btn-sm btn-muted-danger" title="Turn screen off">
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                        </svg>
+                        <span>Blank Screen</span>
                     </button>
-                    <a href="/viewer" target="_blank" class="btn btn-sm btn-outline" title="Open Slideshow Viewer in a new browser tab">
-                        <span class="icon">↗</span> Open Viewer
+                    <a href="/viewer" target="_blank" class="btn btn-sm btn-ghost" title="Open Slideshow Viewer in a new browser tab">
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>
+                        </svg>
+                        <span>Open Viewer</span>
                     </a>
                 </div>
             </div>
         </header>
 
-        <!-- Navigation Tabs Bar -->
-        <nav class="tab-navigation">
-            <button class="nav-tab active" data-tab="mixerTab">
-                <span class="tab-icon">🎛️</span>
-                <span>Dual Monitor Mixer</span>
-            </button>
-            <button class="nav-tab" data-tab="imagesTab">
-                <span class="tab-icon">🖼️</span>
-                <span>Image Slideshow & Studio</span>
-                <span class="counter-badge" id="imageCountBadge">0</span>
-            </button>
-            <button class="nav-tab" data-tab="websitesTab">
-                <span class="tab-icon">🌐</span>
-                <span>Websites & Darts</span>
-                <span class="counter-badge" id="websiteCountBadge">0</span>
-            </button>
-            <button class="nav-tab" data-tab="schedulesTab">
-                <span class="tab-icon">⏰</span>
-                <span>Time Scheduler</span>
-                <span class="counter-badge" id="scheduleCountBadge">0</span>
-            </button>
-        </nav>
+        <!-- Main Workspace (Left Sidebar Navigation + Main Content Area) -->
+        <div class="app-workspace">
+            <!-- Sidebar Navigation Tabs -->
+            <aside class="sidebar-navigation">
+                <nav class="nav-segment-track">
+                    <button class="nav-tab active" data-tab="mixerTab">
+                        <span class="tab-icon">
+                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">Dual Monitor Mixer</span>
+                    </button>
+                    <button class="nav-tab" data-tab="imagesTab">
+                        <span class="tab-icon">
+                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">Image Slideshow</span>
+                        <span class="counter-badge" id="imageCountBadge">0</span>
+                    </button>
+                    <button class="nav-tab" data-tab="websitesTab">
+                        <span class="tab-icon">
+                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">Websites & Darts</span>
+                        <span class="counter-badge" id="websiteCountBadge">0</span>
+                    </button>
+                    <button class="nav-tab" data-tab="schedulesTab">
+                        <span class="tab-icon">
+                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">Time Scheduler</span>
+                        <span class="counter-badge" id="scheduleCountBadge">0</span>
+                    </button>
+                </nav>
 
-        <!-- Main Content Area -->
-        <main class="main-container">
-            <!-- ========================================================= -->
-            <!-- TAB 0: Dual Monitor Mixer (Independent Screen Control) -->
-            <!-- ========================================================= -->
-            <section id="mixerTab" class="tab-content active">
-                <div class="card mixer-master-card">
-                    <div class="card-header flex-between">
-                        <div>
-                            <h2>🎛️ Dual Monitor Mixer</h2>
-                            <p class="card-subtext">Control Monitor 1 and Monitor 2 with different websites, slideshows, or images independently</p>
-                        </div>
-                        <button class="btn btn-primary" onclick="applyDualMixer()">
-                            🚀 Apply Both Monitors (Mixed Mode)
-                        </button>
+                <!-- Sidebar Hardware Status Footer Card -->
+                <div class="sidebar-hardware-card">
+                    <div class="sidebar-hardware-title">
+                        <span class="monitor-status-dot"></span>
+                        <span>Hardware Engine</span>
                     </div>
-                    <div class="card-body">
-                        <div class="split-columns" style="grid-template-columns: 1fr 1fr;">
-                            <!-- Monitor 1 Configurator -->
-                            <div class="card monitor-config-card">
-                                <div class="card-header flex-between">
-                                    <h3>🖥️ Monitor 1</h3>
-                                    <button class="btn btn-xs btn-primary" onclick="applySingleMonitor('1')">
-                                        Update Monitor 1 Only
-                                    </button>
-                                </div>
-                                <div class="card-body custom-form">
-                                    <div class="form-group">
-                                        <label for="mixerMon1Type">Display Content Type</label>
-                                        <select id="mixerMon1Type" class="form-select" onchange="onMixerTypeChange('1')">
-                                            <option value="website">🌐 Website / Autodarts</option>
-                                            <option value="slideshow">🖼️ Random / Timed Slideshow</option>
-                                            <option value="image">📸 Single Uploaded Image</option>
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon1WebsiteBox" class="form-group">
-                                        <label for="mixerMon1Website">Choose Website</label>
-                                        <select id="mixerMon1Website" class="form-select">
-                                            <!-- Injected from websites -->
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon1ImageBox" class="form-group" style="display: none;">
-                                        <label for="mixerMon1Image">Choose Image</label>
-                                        <select id="mixerMon1Image" class="form-select">
-                                            <!-- Injected from images -->
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon1SlideshowBox" class="form-group" style="display: none;">
-                                        <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
-                                    </div>
-
-                                    <div id="mixerMon1FitBox" class="form-group" style="display: none;">
-                                        <label for="mixerMon1Fit">Image Fit</label>
-                                        <select id="mixerMon1Fit" class="form-select">
-                                            <option value="cover" selected>Cover (Fill Entire Screen)</option>
-                                            <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Monitor 2 Configurator -->
-                            <div class="card monitor-config-card">
-                                <div class="card-header flex-between">
-                                    <h3>🖥️ Monitor 2</h3>
-                                    <button class="btn btn-xs btn-primary" onclick="applySingleMonitor('2')">
-                                        Update Monitor 2 Only
-                                    </button>
-                                </div>
-                                <div class="card-body custom-form">
-                                    <div class="form-group">
-                                        <label for="mixerMon2Type">Display Content Type</label>
-                                        <select id="mixerMon2Type" class="form-select" onchange="onMixerTypeChange('2')">
-                                            <option value="slideshow">🖼️ Random / Timed Slideshow</option>
-                                            <option value="website">🌐 Website / Autodarts</option>
-                                            <option value="image">📸 Single Uploaded Image</option>
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon2WebsiteBox" class="form-group" style="display: none;">
-                                        <label for="mixerMon2Website">Choose Website</label>
-                                        <select id="mixerMon2Website" class="form-select">
-                                            <!-- Injected from websites -->
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon2ImageBox" class="form-group" style="display: none;">
-                                        <label for="mixerMon2Image">Choose Image</label>
-                                        <select id="mixerMon2Image" class="form-select">
-                                            <!-- Injected from images -->
-                                        </select>
-                                    </div>
-
-                                    <div id="mixerMon2SlideshowBox" class="form-group">
-                                        <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
-                                    </div>
-
-                                    <div id="mixerMon2FitBox" class="form-group">
-                                        <label for="mixerMon2Fit">Image Fit</label>
-                                        <select id="mixerMon2Fit" class="form-select">
-                                            <option value="cover" selected>Cover (Fill Entire Screen)</option>
-                                            <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="sidebar-hardware-row">
+                        <span class="hw-label">Display Mode</span>
+                        <span class="hw-value">Dual HDMI</span>
+                    </div>
+                    <div class="sidebar-hardware-row">
+                        <span class="hw-label">Service Port</span>
+                        <span class="hw-value">5001</span>
                     </div>
                 </div>
-            </section>
+            </aside>
 
-            <!-- ========================================================= -->
-            <!-- TAB 1: Image Slideshow & Studio -->
-            <!-- ========================================================= -->
-            <section id="imagesTab" class="tab-content">
-                <!-- Slideshow Control Console Card -->
-                <div class="card control-console-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <h2>✨ Slideshow Studio Controller</h2>
-                            <p>Configure randomize mode, timing intervals, and launch directly to Raspberry Pi monitors</p>
+            <!-- Main Content Area -->
+            <main class="main-container">
+                <!-- ========================================================= -->
+                <!-- TAB 0: Dual Monitor Mixer (Independent Screen Control) -->
+                <!-- ========================================================= -->
+                <section id="mixerTab" class="tab-content active">
+                    <div class="card mixer-master-card">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h2>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
+                                    </svg>
+                                    Dual Monitor Mixer
+                                </h2>
+                                <p class="card-subtext">Control Monitor 1 and Monitor 2 with different websites, slideshows, or images independently</p>
+                            </div>
+                            <button class="btn btn-hero-primary" onclick="applyDualMixer()">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                                </svg>
+                                <span>Apply Both Monitors</span>
+                            </button>
                         </div>
-                    </div>
-                    
-                    <div class="card-body">
-                        <div class="slideshow-settings-grid">
-                            <!-- Randomize / Sequential Switch -->
-                            <div class="setting-item">
-                                <label class="setting-label">Playback Order</label>
-                                <div class="segmented-control">
-                                    <button type="button" class="segment-btn active" id="modeRandomBtn" onclick="setSlideshowMode('random')">
-                                        🔀 Random (Shuffle)
-                                    </button>
-                                    <button type="button" class="segment-btn" id="modeSequentialBtn" onclick="setSlideshowMode('sequential')">
-                                        🔁 Sequential
-                                    </button>
+                        <div class="card-body">
+                            <div class="split-columns" style="grid-template-columns: 1fr 1fr;">
+                                <!-- Monitor 1 Configurator -->
+                                <div class="card monitor-config-card">
+                                    <div class="card-header flex-between">
+                                        <div class="monitor-title-wrapper">
+                                            <span class="monitor-status-dot"></span>
+                                            <h3>Monitor 1</h3>
+                                            <span class="monitor-badge mon1-accent">HDMI-1</span>
+                                        </div>
+                                        <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
+                                            Update Monitor 1 Only
+                                        </button>
+                                    </div>
+
+                                    <!-- 16:9 Live Display Preview -->
+                                    <div class="display-preview-container">
+                                        <div class="preview-monitor-frame">
+                                            <div class="preview-monitor-bar">
+                                                <div class="preview-window-dots">
+                                                    <span></span><span></span><span></span>
+                                                </div>
+                                                <div class="preview-target-badge" id="mon1PreviewTitle">
+                                                    <span>Display Preview</span>
+                                                </div>
+                                                <span class="preview-res-badge">1080p</span>
+                                            </div>
+                                            <div class="preview-monitor-screen" id="mon1PreviewScreen">
+                                                <!-- Injected dynamically -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card-body custom-form">
+                                        <div class="form-group">
+                                            <label for="mixerMon1Type">Display Content Type</label>
+                                            <select id="mixerMon1Type" class="form-select" onchange="onMixerTypeChange('1')">
+                                                <option value="website">Website / Autodarts</option>
+                                                <option value="slideshow">Random / Timed Slideshow</option>
+                                                <option value="image">Single Uploaded Image</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon1WebsiteBox" class="form-group">
+                                            <label for="mixerMon1Website">Choose Website</label>
+                                            <select id="mixerMon1Website" class="form-select">
+                                                <!-- Injected from websites -->
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon1ImageBox" class="form-group" style="display: none;">
+                                            <label for="mixerMon1Image">Choose Image</label>
+                                            <select id="mixerMon1Image" class="form-select">
+                                                <!-- Injected from images -->
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon1SlideshowBox" class="form-group" style="display: none;">
+                                            <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
+                                        </div>
+
+                                        <div id="mixerMon1FitBox" class="form-group" style="display: none;">
+                                            <label for="mixerMon1Fit">Image Fit</label>
+                                            <select id="mixerMon1Fit" class="form-select">
+                                                <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                                <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Monitor 2 Configurator -->
+                                <div class="card monitor-config-card">
+                                    <div class="card-header flex-between">
+                                        <div class="monitor-title-wrapper">
+                                            <span class="monitor-status-dot"></span>
+                                            <h3>Monitor 2</h3>
+                                            <span class="monitor-badge mon2-accent">HDMI-2</span>
+                                        </div>
+                                        <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('2')">
+                                            Update Monitor 2 Only
+                                        </button>
+                                    </div>
+
+                                    <!-- 16:9 Live Display Preview -->
+                                    <div class="display-preview-container">
+                                        <div class="preview-monitor-frame">
+                                            <div class="preview-monitor-bar">
+                                                <div class="preview-window-dots">
+                                                    <span></span><span></span><span></span>
+                                                </div>
+                                                <div class="preview-target-badge" id="mon2PreviewTitle">
+                                                    <span>Display Preview</span>
+                                                </div>
+                                                <span class="preview-res-badge">1080p</span>
+                                            </div>
+                                            <div class="preview-monitor-screen" id="mon2PreviewScreen">
+                                                <!-- Injected dynamically -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card-body custom-form">
+                                        <div class="form-group">
+                                            <label for="mixerMon2Type">Display Content Type</label>
+                                            <select id="mixerMon2Type" class="form-select" onchange="onMixerTypeChange('2')">
+                                                <option value="slideshow">Random / Timed Slideshow</option>
+                                                <option value="website">Website / Autodarts</option>
+                                                <option value="image">Single Uploaded Image</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon2WebsiteBox" class="form-group" style="display: none;">
+                                            <label for="mixerMon2Website">Choose Website</label>
+                                            <select id="mixerMon2Website" class="form-select">
+                                                <!-- Injected from websites -->
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon2ImageBox" class="form-group" style="display: none;">
+                                            <label for="mixerMon2Image">Choose Image</label>
+                                            <select id="mixerMon2Image" class="form-select">
+                                                <!-- Injected from images -->
+                                            </select>
+                                        </div>
+
+                                        <div id="mixerMon2SlideshowBox" class="form-group">
+                                            <small class="form-hint">Plays randomized uploaded images with your Slideshow Studio settings.</small>
+                                        </div>
+
+                                        <div id="mixerMon2FitBox" class="form-group">
+                                            <label for="mixerMon2Fit">Image Fit</label>
+                                            <select id="mixerMon2Fit" class="form-select">
+                                                <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                                <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </section>
 
-                            <!-- Interval Selector -->
-                            <div class="setting-item">
-                                <label class="setting-label" for="slideshowInterval">Change Every</label>
-                                <div class="interval-picker">
-                                    <select id="slideshowInterval" class="form-select" onchange="updateSlideshowSetting('interval', this.value)">
-                                        <option value="5">5 seconds</option>
-                                        <option value="10">10 seconds</option>
-                                        <option value="20">20 seconds</option>
-                                        <option value="30" selected>30 seconds</option>
-                                        <option value="60">1 minute</option>
-                                        <option value="300">5 minutes</option>
-                                        <option value="600">10 minutes</option>
-                                        <option value="1800">30 minutes</option>
-                                        <option value="3600">1 hour</option>
+                <!-- ========================================================= -->
+                <!-- TAB 1: Image Slideshow & Studio -->
+                <!-- ========================================================= -->
+                <section id="imagesTab" class="tab-content">
+                    <!-- Slideshow Control Console Card -->
+                    <div class="card control-console-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <h2>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                                        <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+                                    </svg>
+                                    Slideshow Studio Controller
+                                </h2>
+                                <p class="card-subtext">Configure randomize mode, timing intervals, and launch directly to Raspberry Pi monitors</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <div class="slideshow-settings-grid">
+                                <!-- Randomize / Sequential Switch -->
+                                <div class="setting-item">
+                                    <label class="setting-label">Playback Order</label>
+                                    <div class="segmented-control">
+                                        <button type="button" class="segment-btn active" id="modeRandomBtn" onclick="setSlideshowMode('random')">
+                                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>
+                                            </svg>
+                                            <span>Random (Shuffle)</span>
+                                        </button>
+                                        <button type="button" class="segment-btn" id="modeSequentialBtn" onclick="setSlideshowMode('sequential')">
+                                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+                                            </svg>
+                                            <span>Sequential</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Interval Selector -->
+                                <div class="setting-item">
+                                    <label class="setting-label" for="slideshowInterval">Change Every</label>
+                                    <div class="interval-picker">
+                                        <select id="slideshowInterval" class="form-select" onchange="updateSlideshowSetting('interval', this.value)">
+                                            <option value="5">5 seconds</option>
+                                            <option value="10">10 seconds</option>
+                                            <option value="20">20 seconds</option>
+                                            <option value="30" selected>30 seconds</option>
+                                            <option value="60">1 minute</option>
+                                            <option value="300">5 minutes</option>
+                                            <option value="600">10 minutes</option>
+                                            <option value="1800">30 minutes</option>
+                                            <option value="3600">1 hour</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Image Fit Mode -->
+                                <div class="setting-item">
+                                    <label class="setting-label" for="slideshowFit">Image Fit</label>
+                                    <select id="slideshowFit" class="form-select" onchange="updateSlideshowSetting('fit', this.value)">
+                                        <option value="cover" selected>Cover (Fill Entire Screen)</option>
+                                        <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Transition Style -->
+                                <div class="setting-item">
+                                    <label class="setting-label" for="slideshowTransition">Transition Style</label>
+                                    <select id="slideshowTransition" class="form-select" onchange="updateSlideshowSetting('transition', this.value)">
+                                        <option value="fade" selected>Smooth Crossfade</option>
+                                        <option value="slide">Slide In</option>
+                                        <option value="instant">Instant Cut</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <!-- Image Fit Mode -->
-                            <div class="setting-item">
-                                <label class="setting-label" for="slideshowFit">Image Fit</label>
-                                <select id="slideshowFit" class="form-select" onchange="updateSlideshowSetting('fit', this.value)">
-                                    <option value="cover" selected>Cover (Fill Entire Screen)</option>
-                                    <option value="contain">Contain (Preserve Full Aspect Ratio)</option>
-                                </select>
-                            </div>
-
-                            <!-- Transition Style -->
-                            <div class="setting-item">
-                                <label class="setting-label" for="slideshowTransition">Transition Style</label>
-                                <select id="slideshowTransition" class="form-select" onchange="updateSlideshowSetting('transition', this.value)">
-                                    <option value="fade" selected>Smooth Crossfade</option>
-                                    <option value="slide">Slide In</option>
-                                    <option value="instant">Instant Cut</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Big Action Launcher Banner -->
-                        <div class="slideshow-launch-bar">
-                            <div class="launch-desc">
-                                <strong>Start Slideshow Now:</strong>
-                                <span id="slideshowSummaryText">Random shuffle every 30s</span>
-                            </div>
-                            <div class="launch-button-group">
-                                <button class="btn btn-primary" onclick="launchSlideshow('both')">
-                                    🚀 Both Monitors
-                                </button>
-                                <button class="btn btn-secondary" onclick="launchSlideshow('1')">
-                                    🖥️ Monitor 1
-                                </button>
-                                <button class="btn btn-secondary" onclick="launchSlideshow('2')">
-                                    🖥️ Monitor 2
-                                </button>
+                            <!-- Big Action Launcher Banner -->
+                            <div class="slideshow-launch-bar">
+                                <div class="launch-desc">
+                                    <strong>Start Slideshow Now:</strong>
+                                    <span id="slideshowSummaryText">Random shuffle every 30s</span>
+                                </div>
+                                <div class="launch-button-group">
+                                    <button class="btn btn-hero-primary" onclick="launchSlideshow('both')">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                                        </svg>
+                                        <span>Both Monitors</span>
+                                    </button>
+                                    <button class="btn btn-subtle-secondary" onclick="launchSlideshow('1')">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
+                                        </svg>
+                                        <span>Monitor 1</span>
+                                    </button>
+                                    <button class="btn btn-subtle-secondary" onclick="launchSlideshow('2')">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
+                                        </svg>
+                                        <span>Monitor 2</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Image Management Grid & Upload -->
-                <div class="split-columns">
-                    <!-- Left: Upload Box -->
-                    <div class="card upload-card">
-                        <div class="card-header">
-                            <h3>📤 Upload New Image</h3>
+                    <!-- Image Management Grid & Upload -->
+                    <div class="split-columns">
+                        <!-- Left: Upload Box -->
+                        <div class="card upload-card">
+                            <div class="card-header">
+                                <h3>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
+                                    </svg>
+                                    Upload New Image
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="uploadImageForm" class="custom-form">
+                                    <div class="form-group">
+                                        <label for="imageName">Image Title</label>
+                                        <input type="text" id="imageName" class="form-input" placeholder="e.g., Summer Sunset, Sponsor Logo" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="imageFile">Select File</label>
+                                        <input type="file" id="imageFile" class="form-input-file" accept="image/*" required>
+                                        <small class="form-hint">Supports PNG, JPG, JPEG, GIF, WEBP, SVG</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-subtle-secondary btn-block" id="uploadSubmitBtn">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
+                                        </svg>
+                                        Upload Image
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <form id="uploadImageForm" class="custom-form">
-                                <div class="form-group">
-                                    <label for="imageName">Image Title</label>
-                                    <input type="text" id="imageName" class="form-input" placeholder="e.g., Summer Sunset, Sponsor Logo" required>
+
+                        <!-- Right: Gallery -->
+                        <div class="card gallery-card">
+                            <div class="card-header flex-between">
+                                <div class="header-left">
+                                    <h3>
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                        </svg>
+                                        Uploaded Library
+                                    </h3>
+                                    <p class="card-subtext">Click any image to show individually or configure selection</p>
                                 </div>
-                                <div class="form-group">
-                                    <label for="imageFile">Select File</label>
-                                    <input type="file" id="imageFile" class="form-input-file" accept="image/*" required>
-                                    <small class="form-hint">Supports PNG, JPG, JPEG, GIF, WEBP, SVG</small>
+                                <div class="header-actions">
+                                    <button class="btn btn-xs btn-subtle-secondary" onclick="selectAllImages(true)">Select All</button>
+                                    <button class="btn btn-xs btn-subtle-secondary" onclick="selectAllImages(false)">Clear Selection</button>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-block" id="uploadSubmitBtn">
-                                    Upload Image
-                                </button>
-                            </form>
+                            </div>
+                            <div class="card-body">
+                                <div id="imageList" class="image-grid">
+                                    <!-- Images injected dynamically -->
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Right: Gallery -->
-                    <div class="card gallery-card">
+                <!-- ========================================================= -->
+                <!-- TAB 2: Websites & Autodarts -->
+                <!-- ========================================================= -->
+                <section id="websitesTab" class="tab-content">
+                    <div class="split-columns">
+                        <!-- Website List -->
+                        <div class="card websites-main-card">
+                            <div class="card-header">
+                                <h3>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+                                    </svg>
+                                    Saved Websites
+                                </h3>
+                                <p class="card-subtext">Quickly switch monitor displays to Autodarts or any web URL</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="websiteList" class="website-grid">
+                                    <!-- Websites loaded dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Website Card -->
+                        <div class="card add-website-card">
+                            <div class="card-header">
+                                <h3>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>
+                                    </svg>
+                                    Add Website
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="addWebsiteForm" class="custom-form">
+                                    <div class="form-group">
+                                        <label for="websiteName">Site Name</label>
+                                        <input type="text" id="websiteName" class="form-input" placeholder="e.g., Autodarts, Scoreboard, Twitch" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="websiteUrl">URL Address</label>
+                                        <input type="url" id="websiteUrl" class="form-input" placeholder="https://example.com">
+                                        <small class="form-hint">Leave blank to use default Autodarts board</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-subtle-secondary btn-block">
+                                        Save Website
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB 3: Time-based Scheduler -->
+                <!-- ========================================================= -->
+                <section id="schedulesTab" class="tab-content">
+                    <div class="card scheduler-intro-card">
                         <div class="card-header flex-between">
-                            <div class="header-left">
-                                <h3>🖼️ Uploaded Library</h3>
-                                <p class="card-subtext">Click any image to show individually or configure selection</p>
+                            <div>
+                                <h2>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                    Automated Time Scheduler
+                                </h2>
+                                <p class="card-subtext">Automatically change displays, randomize images, or sleep/wake screens at designated times of the day</p>
                             </div>
-                            <div class="header-actions">
-                                <button class="btn btn-xs btn-outline" onclick="selectAllImages(true)">Select All</button>
-                                <button class="btn btn-xs btn-outline" onclick="selectAllImages(false)">Clear Selection</button>
-                            </div>
+                            <button class="btn btn-subtle-secondary" onclick="openAddScheduleModal()">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>
+                                </svg>
+                                <span>New Schedule</span>
+                            </button>
                         </div>
                         <div class="card-body">
-                            <div id="imageList" class="image-grid">
-                                <!-- Images injected dynamically -->
+                            <div id="schedulesList" class="schedules-container">
+                                <!-- Schedules rendered dynamically -->
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <!-- ========================================================= -->
-            <!-- TAB 2: Websites & Autodarts -->
-            <!-- ========================================================= -->
-            <section id="websitesTab" class="tab-content">
-                <div class="split-columns">
-                    <!-- Website List -->
-                    <div class="card websites-main-card">
-                        <div class="card-header">
-                            <h3>🌐 Saved Websites</h3>
-                            <p class="card-subtext">Quickly switch monitor displays to Autodarts or any web URL</p>
-                        </div>
-                        <div class="card-body">
-                            <div id="websiteList" class="website-grid">
-                                <!-- Websites loaded dynamically -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Add Website Card -->
-                    <div class="card add-website-card">
-                        <div class="card-header">
-                            <h3>➕ Add Website</h3>
-                        </div>
-                        <div class="card-body">
-                            <form id="addWebsiteForm" class="custom-form">
-                                <div class="form-group">
-                                    <label for="websiteName">Site Name</label>
-                                    <input type="text" id="websiteName" class="form-input" placeholder="e.g., Autodarts, Scoreboard, Twitch" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="websiteUrl">URL Address</label>
-                                    <input type="url" id="websiteUrl" class="form-input" placeholder="https://example.com">
-                                    <small class="form-hint">Leave blank to use default Autodarts board</small>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-block">
-                                    Save Website
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ========================================================= -->
-            <!-- TAB 3: Time-based Scheduler -->
-            <!-- ========================================================= -->
-            <section id="schedulesTab" class="tab-content">
-                <div class="card scheduler-intro-card">
-                    <div class="card-header flex-between">
-                        <div>
-                            <h2>⏰ Automated Time Scheduler</h2>
-                            <p>Automatically change displays, randomize images, or sleep/wake screens at designated times of the day</p>
-                        </div>
-                        <button class="btn btn-primary" onclick="openAddScheduleModal()">
-                            ➕ New Schedule
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div id="schedulesList" class="schedules-container">
-                            <!-- Schedules rendered dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
+                </section>
+            </main>
+        </div>
 
         <!-- Dynamic Status Toast Notifications -->
         <div id="statusMessage" class="toast-notification"></div>
@@ -443,7 +601,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancel</button>
-                        <button type="submit" class="btn btn-success">Save Schedule</button>
+                        <button type="submit" class="btn btn-primary">Save Schedule</button>
                     </div>
                 </form>
             </div>

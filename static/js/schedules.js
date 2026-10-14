@@ -3,6 +3,7 @@
  */
 
 import { appState, showToast, escapeHtml } from './state.js';
+import { getIcon } from './icons.js';
 
 export async function loadSchedules() {
     try {
@@ -58,7 +59,7 @@ export function renderSchedulesList() {
                     <span class="slider"></span>
                 </label>
                 <button class="btn btn-xs btn-danger" onclick="deleteSchedule('${sch.id}')" title="Delete schedule">
-                    🗑️
+                    ${getIcon('trash')}
                 </button>
             </div>
         `;
@@ -168,6 +169,8 @@ export async function deleteSchedule(scheduleId) {
             const countBadge = document.getElementById('scheduleCountBadge');
             if (countBadge) countBadge.textContent = data.schedules.length;
             renderSchedulesList();
+        } else {
+            showToast('Error: ' + data.error, 'error');
         }
     } catch (err) {
         showToast('Error deleting schedule: ' + err.message, 'error');

@@ -5,7 +5,7 @@
 
 import { appState, showToast, escapeHtml } from './js/state.js';
 import { fetchLiveStatus, handleBlankDisplay, handleWakeDisplay } from './js/display.js';
-import { onMixerTypeChange, populateMixerOptions, getMonitorTargetObject, applyDualMixer, applySingleMonitor } from './js/mixer.js';
+import { onMixerTypeChange, populateMixerOptions, updateMixerPreview, getMonitorTargetObject, applyDualMixer, applySingleMonitor } from './js/mixer.js';
 import { loadSlideshowConfig, renderSlideshowControls, updateSlideshowSummaryText, setSlideshowMode, updateSlideshowSetting, saveSlideshowConfigChanges, launchSlideshow } from './js/slideshow.js';
 import { loadImages, renderImagesGrid, handleUploadImage, displaySingleImage, deleteImage, selectAllImages } from './js/images.js';
 import { loadWebsites, renderWebsitesGrid, handleAddWebsite, launchWebsite, deleteWebsite, populateWebsiteOptions } from './js/websites.js';
@@ -21,6 +21,7 @@ Object.assign(window, {
     handleWakeDisplay,
     onMixerTypeChange,
     populateMixerOptions,
+    updateMixerPreview,
     getMonitorTargetObject,
     applyDualMixer,
     applySingleMonitor,

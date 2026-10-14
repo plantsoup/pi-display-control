@@ -5,6 +5,7 @@
 import { appState, showToast, escapeHtml } from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
+import { getIcon } from './icons.js';
 
 export async function loadWebsites() {
     try {
@@ -52,7 +53,7 @@ export function renderWebsitesGrid() {
         card.innerHTML = `
             <div class="website-header">
                 <div class="website-favicon">
-                    <img src="${favicon}" alt="${escapeHtml(site.name)}" onerror="this.parentElement.innerHTML='🌐';">
+                    <img src="${favicon}" alt="${escapeHtml(site.name)}" onerror="this.parentElement.innerHTML='${getIcon('globe')}';">
                 </div>
                 <div class="website-info">
                     <h4>
@@ -63,17 +64,17 @@ export function renderWebsitesGrid() {
                 </div>
             </div>
             <div class="website-actions">
-                <button class="btn btn-sm btn-primary" onclick="launchWebsite(${idx}, 'both')">
-                    🚀 Both Displays
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, 'both')">
+                    ${getIcon('rocket')} Both Displays
                 </button>
-                <button class="btn btn-sm btn-secondary" onclick="launchWebsite(${idx}, '1')">
-                    🖥️ Monitor 1
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '1')">
+                    ${getIcon('monitor')} Monitor 1
                 </button>
-                <button class="btn btn-sm btn-secondary" onclick="launchWebsite(${idx}, '2')">
-                    🖥️ Monitor 2
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '2')">
+                    ${getIcon('monitor')} Monitor 2
                 </button>
                 <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})">
-                    🗑️ Delete
+                    ${getIcon('trash')} Delete
                 </button>
             </div>
         `;

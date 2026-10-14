@@ -6,6 +6,7 @@ import { appState, showToast, escapeHtml } from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
 import { saveSlideshowConfigChanges, updateSlideshowSummaryText } from './slideshow.js';
+import { getIcon } from './icons.js';
 
 export async function loadImages() {
     try {
@@ -47,17 +48,17 @@ export function renderImagesGrid() {
                 <p>${escapeHtml(img.original_filename || '')}</p>
             </div>
             <div class="image-card-actions">
-                <button class="btn btn-xs btn-primary" onclick="displaySingleImage('${img.filename}', 'both')" title="Show on both monitors">
-                    🚀 Both
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', 'both')" title="Show on both monitors">
+                    ${getIcon('rocket')} Both
                 </button>
-                <button class="btn btn-xs btn-secondary" onclick="displaySingleImage('${img.filename}', '1')" title="Show on Monitor 1 only">
-                    🖥️ M1
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', '1')" title="Show on Monitor 1 only">
+                    ${getIcon('monitor')} M1
                 </button>
-                <button class="btn btn-xs btn-secondary" onclick="displaySingleImage('${img.filename}', '2')" title="Show on Monitor 2 only">
-                    🖥️ M2
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', '2')" title="Show on Monitor 2 only">
+                    ${getIcon('monitor')} M2
                 </button>
                 <button class="btn btn-xs btn-danger" onclick="deleteImage(${idx})" title="Delete image">
-                    🗑️
+                    ${getIcon('trash')}
                 </button>
             </div>
         `;
@@ -106,7 +107,7 @@ export async function handleUploadImage(e) {
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Upload Image';
+            submitBtn.innerHTML = `${getIcon('upload')} Upload Image`;
         }
     }
 }
