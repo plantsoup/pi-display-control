@@ -109,6 +109,14 @@
                         <span class="hw-value">Dual HDMI</span>
                     </div>
                     <div class="sidebar-hardware-row">
+                        <span class="hw-label">Mon 1 Default</span>
+                        <span class="hw-value" id="sidebarMon1Rot">left</span>
+                    </div>
+                    <div class="sidebar-hardware-row">
+                        <span class="hw-label">Mon 2 Default</span>
+                        <span class="hw-value" id="sidebarMon2Rot">right</span>
+                    </div>
+                    <div class="sidebar-hardware-row">
                         <span class="hw-label">Service Port</span>
                         <span class="hw-value">5001</span>
                     </div>
@@ -140,6 +148,31 @@
                             </button>
                         </div>
                         <div class="card-body">
+                            <!-- Display Hardware & Startup Defaults Banner -->
+                            <div class="display-defaults-banner flex-between">
+                                <div class="defaults-banner-info">
+                                    <div class="defaults-banner-title">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                        <span>Startup Default Orientations</span>
+                                    </div>
+                                    <div class="defaults-banner-pills" id="hardwareDefaultsSummary">
+                                        <span class="def-mon-tag">Mon 1: <strong>Portrait (Left)</strong></span>
+                                        <span class="def-mon-separator">&bull;</span>
+                                        <span class="def-mon-tag">Mon 2: <strong>Portrait (Right)</strong></span>
+                                    </div>
+                                </div>
+                                <div class="defaults-banner-actions">
+                                    <button class="btn btn-xs btn-neutral" onclick="handleSaveAllCurrentAsDefault()" title="Save both current orientations as reboot defaults">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                        <span>Set Current as Default</span>
+                                    </button>
+                                    <button class="btn btn-xs btn-subtle-secondary" onclick="handleResetToDefaults()" title="Revert active screens back to saved defaults">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                        <span>Restore Defaults</span>
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="split-columns" style="grid-template-columns: 1fr 1fr;">
                                 <!-- Monitor 1 Configurator -->
                                 <div class="card monitor-config-card">
@@ -156,7 +189,7 @@
 
                                     <!-- 16:9 Live Display Preview -->
                                     <div class="display-preview-container">
-                                        <div class="preview-monitor-frame">
+                                        <div class="preview-monitor-frame is-portrait" id="mon1PreviewFrame">
                                             <div class="preview-monitor-bar">
                                                 <div class="preview-window-dots">
                                                     <span></span><span></span><span></span>
@@ -164,7 +197,10 @@
                                                 <div class="preview-target-badge" id="mon1PreviewTitle">
                                                     <span>Display Preview</span>
                                                 </div>
-                                                <span class="preview-res-badge">1080p</span>
+                                                <div class="preview-bar-right">
+                                                    <span class="preview-orientation-badge portrait" id="mon1OrientationBadge">Portrait</span>
+                                                    <span class="preview-res-badge">1080p</span>
+                                                </div>
                                             </div>
                                             <div class="preview-monitor-screen" id="mon1PreviewScreen">
                                                 <!-- Injected dynamically -->
@@ -173,6 +209,39 @@
                                     </div>
 
                                     <div class="card-body custom-form">
+                                        <!-- Monitor 1 Rotation Controls -->
+                                        <div class="form-group rotation-control-group">
+                                            <div class="flex-between rotation-label-row">
+                                                <label for="mixerMon1Rotation" class="rotation-label">
+                                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                                    Orientation
+                                                </label>
+                                                <div id="mixerMon1RotationBadge" class="rotation-status-badge">
+                                                    <!-- Dynamic badge -->
+                                                </div>
+                                            </div>
+                                            <div class="rotation-action-row">
+                                                <select id="mixerMon1Rotation" class="form-select rotation-select">
+                                                    <option value="left" selected>Portrait (Left / 270° CCW)</option>
+                                                    <option value="right">Portrait (Right / 90° CW)</option>
+                                                    <option value="normal">Landscape (Normal / 0°)</option>
+                                                    <option value="inverted">Inverted Landscape (180°)</option>
+                                                </select>
+                                                <button type="button" class="btn btn-sm btn-neutral" onclick="handleApplyMonitorRotation('1')" title="Apply orientation immediately">
+                                                    Rotate
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-subtle-secondary" onclick="handleSetDefaultRotation('1')" title="Save selected orientation as startup default">
+                                                    Set Default
+                                                </button>
+                                            </div>
+                                            <div class="rotation-options-bar">
+                                                <label class="custom-checkbox-label">
+                                                    <input type="checkbox" id="mixerMon1SaveDefault" class="custom-checkbox" checked>
+                                                    <span>Save as default on rotate</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
                                         <div class="form-group">
                                             <label for="mixerMon1Type">Display Content Type</label>
                                             <select id="mixerMon1Type" class="form-select" onchange="onMixerTypeChange('1')">
@@ -225,7 +294,7 @@
 
                                     <!-- 16:9 Live Display Preview -->
                                     <div class="display-preview-container">
-                                        <div class="preview-monitor-frame">
+                                        <div class="preview-monitor-frame is-portrait" id="mon2PreviewFrame">
                                             <div class="preview-monitor-bar">
                                                 <div class="preview-window-dots">
                                                     <span></span><span></span><span></span>
@@ -233,7 +302,10 @@
                                                 <div class="preview-target-badge" id="mon2PreviewTitle">
                                                     <span>Display Preview</span>
                                                 </div>
-                                                <span class="preview-res-badge">1080p</span>
+                                                <div class="preview-bar-right">
+                                                    <span class="preview-orientation-badge portrait" id="mon2OrientationBadge">Portrait</span>
+                                                    <span class="preview-res-badge">1080p</span>
+                                                </div>
                                             </div>
                                             <div class="preview-monitor-screen" id="mon2PreviewScreen">
                                                 <!-- Injected dynamically -->
@@ -242,6 +314,39 @@
                                     </div>
 
                                     <div class="card-body custom-form">
+                                        <!-- Monitor 2 Rotation Controls -->
+                                        <div class="form-group rotation-control-group">
+                                            <div class="flex-between rotation-label-row">
+                                                <label for="mixerMon2Rotation" class="rotation-label">
+                                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                                    Orientation
+                                                </label>
+                                                <div id="mixerMon2RotationBadge" class="rotation-status-badge">
+                                                    <!-- Dynamic badge -->
+                                                </div>
+                                            </div>
+                                            <div class="rotation-action-row">
+                                                <select id="mixerMon2Rotation" class="form-select rotation-select">
+                                                    <option value="right" selected>Portrait (Right / 90° CW)</option>
+                                                    <option value="left">Portrait (Left / 270° CCW)</option>
+                                                    <option value="normal">Landscape (Normal / 0°)</option>
+                                                    <option value="inverted">Inverted Landscape (180°)</option>
+                                                </select>
+                                                <button type="button" class="btn btn-sm btn-neutral" onclick="handleApplyMonitorRotation('2')" title="Apply orientation immediately">
+                                                    Rotate
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-subtle-secondary" onclick="handleSetDefaultRotation('2')" title="Save selected orientation as startup default">
+                                                    Set Default
+                                                </button>
+                                            </div>
+                                            <div class="rotation-options-bar">
+                                                <label class="custom-checkbox-label">
+                                                    <input type="checkbox" id="mixerMon2SaveDefault" class="custom-checkbox" checked>
+                                                    <span>Save as default on rotate</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
                                         <div class="form-group">
                                             <label for="mixerMon2Type">Display Content Type</label>
                                             <select id="mixerMon2Type" class="form-select" onchange="onMixerTypeChange('2')">

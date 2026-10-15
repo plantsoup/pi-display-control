@@ -202,7 +202,75 @@ class PiDisplayControlTestCase(unittest.TestCase):
         self.assertEqual(display.DEFAULT_AUTODARTS_URL2, "https://spotifyr.spear.ac")
         self.assertTrue(callable(services.storage.load_websites))
         self.assertTrue(callable(services.display_service.trigger_display_action))
+        self.assertTrue(callable(display.apply_monitor_rotation))
+        self.assertTrue(callable(display.set_default_rotation))
+        self.assertTrue(callable(display.get_monitor_rotation))
+
+    def test_display_rotation_and_default_persistence(self):
+        """Test setting monitor rotations, saving defaults, and persistence"""
+        from display.config import load_display_config, set_default_rotation, get_monitor_rotation
+
+        # Set default rotation for monitor 1 and monitor 2
+        set_default_rotation("1", "normal")
+        set_default_rotation("2", "left")
+
+        # Verify defaults are retrieved
+        self.assertEqual(get_monitor_rotation("1"), "normal")
+        self.assertEqual(get_monitor_rotation("2"), "left")
+
+        # Verify invalid rotation raises ValueError
+        with self.assertRaises(ValueError):
+            set_default_rotation("1", "diagonal_invalid")
+
+        # Verify GET /api/display/monitors
+        res = self.client.get('/api/display/monitors')
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
+        self.assertIn('defaults', data)
+        self.assertEqual(data['defaults']['1'], 'normal')
+        self.assertEqual(data['defaults']['2'], 'left')
+        self.assertIn('available_rotations', data)
+        self.assertIn('monitors', data)
+
+        # Test POST /api/display/rotate with save_default=True
+        res_rot = self.client.post('/api/display/rotate', json={
+            'monitor': '1',
+            'rotation': 'right',
+            'save_default': True,
+            'restart_browser': False
+        })
+        self.assertEqual(res_rot.status_code, 200)
+        data_rot = json.loads(res_rot.data)
+        self.assertTrue(data_rot['success'])
+        self.assertEqual(data_rot['defaults']['1'], 'right')
+        self.assertEqual(get_monitor_rotation("1"), "right")
+
+        # Test POST /api/display/defaults (bulk save)
+        res_def = self.client.post('/api/display/defaults', json={
+            'rotations': {
+                '1': 'left',
+                '2': 'right'
+            },
+            'apply_now': False
+        })
+        self.assertEqual(res_def.status_code, 200)
+        data_def = json.loads(res_def.data)
+        self.assertTrue(data_def['success'])
+        self.assertEqual(data_def['defaults']['1'], 'left')
+        self.assertEqual(data_def['defaults']['2'], 'right')
+        self.assertEqual(get_monitor_rotation("1"), "left")
+        self.assertEqual(get_monitor_rotation("2"), "right")
+
+        # Test POST /api/display/reset-defaults
+        res_reset = self.client.post('/api/display/reset-defaults', json={
+            'restart_browser': False
+        })
+        self.assertEqual(res_reset.status_code, 200)
+        data_reset = json.loads(res_reset.data)
+        self.assertTrue(data_reset['success'])
 
 if __name__ == '__main__':
     unittest.main()
+
 

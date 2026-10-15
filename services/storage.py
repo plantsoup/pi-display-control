@@ -34,6 +34,7 @@ CONFIG_FILE = os.getenv('CONFIG_FILE', os.path.join(DATA_DIR, "websites.json"))
 IMAGES_CONFIG_FILE = os.getenv('IMAGES_CONFIG_FILE', os.path.join(DATA_DIR, "images.json"))
 SLIDESHOW_CONFIG_FILE = os.getenv('SLIDESHOW_CONFIG_FILE', os.path.join(DATA_DIR, "slideshow.json"))
 SCHEDULES_CONFIG_FILE = os.getenv('SCHEDULES_CONFIG_FILE', os.path.join(DATA_DIR, "schedules.json"))
+DISPLAY_CONFIG_FILE = os.getenv('DISPLAY_CONFIG_FILE', os.path.join(DATA_DIR, "display_settings.json"))
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(DATA_DIR, "uploads", "images"))
 
 # Ensure uploads folder exists
@@ -116,3 +117,12 @@ def save_schedules(schedules):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+from display.config import (
+    load_display_config,
+    save_display_config,
+    get_monitor_rotation,
+    set_default_rotation,
+    VALID_ROTATIONS,
+    ROTATION_METADATA
+)

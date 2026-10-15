@@ -10,6 +10,7 @@ import { loadSlideshowConfig, renderSlideshowControls, updateSlideshowSummaryTex
 import { loadImages, renderImagesGrid, handleUploadImage, displaySingleImage, deleteImage, selectAllImages } from './js/images.js';
 import { loadWebsites, renderWebsitesGrid, handleAddWebsite, launchWebsite, deleteWebsite, populateWebsiteOptions } from './js/websites.js';
 import { loadSchedules, renderSchedulesList, openAddScheduleModal, closeScheduleModal, onScheduleActionChange, handleCreateSchedule, toggleSchedule, deleteSchedule } from './js/schedules.js';
+import { loadMonitorsData, handleApplyMonitorRotation, handleSetDefaultRotation, handleSaveAllCurrentAsDefault, handleResetToDefaults } from './js/monitors.js';
 
 // Expose handlers to window for inline HTML onclick/onchange attributes
 Object.assign(window, {
@@ -51,7 +52,12 @@ Object.assign(window, {
     onScheduleActionChange,
     handleCreateSchedule,
     toggleSchedule,
-    deleteSchedule
+    deleteSchedule,
+    loadMonitorsData,
+    handleApplyMonitorRotation,
+    handleSetDefaultRotation,
+    handleSaveAllCurrentAsDefault,
+    handleResetToDefaults
 });
 
 // Initialize Application
@@ -115,6 +121,7 @@ async function refreshAllData() {
         loadImages(),
         loadSlideshowConfig(),
         loadSchedules(),
+        loadMonitorsData(),
         fetchLiveStatus()
     ]);
     populateMixerOptions();
