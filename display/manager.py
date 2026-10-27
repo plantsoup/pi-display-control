@@ -10,7 +10,7 @@ from .monitors import get_connected_monitors
 from .window import get_xdotool_windows, position_window
 
 DEFAULT_AUTODARTS_URL = "https://play.autodarts.io/boards/64a51258-5e52-4a97-9311-9cb81bd7e355/follow"
-DEFAULT_AUTODARTS_URL2 = "https://lastfm.spear.ac"
+DEFAULT_AUTODARTS_URL2 = "https://lastfm.spear.ac/?user=amazingdevice"
 
 def start_display(url1="", url2="", monitor="both"):
     """
