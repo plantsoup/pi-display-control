@@ -2,12 +2,12 @@
  * Slideshow Studio Controller
  */
 
-import { appState, showToast } from './state.js';
+import { appState, showToast, apiFetch, getActiveNode, isRemoteActive } from './state.js';
 import { fetchLiveStatus } from './display.js';
 
 export async function loadSlideshowConfig() {
     try {
-        const res = await fetch('/api/slideshow');
+        const res = await apiFetch('/api/slideshow');
         const data = await res.json();
         if (data.success && data.config) {
             appState.slideshowConfig = data.config;
@@ -53,8 +53,8 @@ export function updateSlideshowSummaryText() {
     if (summaryText) {
         const modeLabel = cfg.mode === 'random' ? 'Random Shuffle' : 'Sequential';
         const intervalText = cfg.interval >= 60 ? `${cfg.interval / 60}m` : `${cfg.interval}s`;
-        const count = cfg.selected_images && cfg.selected_images.length > 0 
-            ? `${cfg.selected_images.length} selected images` 
+        const count = cfg.selected_images && cfg.selected_images.length > 0
+            ? `${cfg.selected_images.length} selected images`
             : 'All uploaded images';
         summaryText.textContent = `${modeLabel} every ${intervalText} (${count})`;
     }
@@ -74,7 +74,7 @@ export async function updateSlideshowSetting(key, value) {
 
 export async function saveSlideshowConfigChanges() {
     try {
-        await fetch('/api/slideshow', {
+        await apiFetch('/api/slideshow', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(appState.slideshowConfig)
@@ -85,15 +85,16 @@ export async function saveSlideshowConfigChanges() {
 }
 
 export async function launchSlideshow(monitor = 'both') {
+    const activeNode = getActiveNode();
     if (appState.images.length === 0) {
-        showToast('Please upload at least one image before starting slideshow', 'error');
+        showToast(`Please upload at least one image on ${activeNode.name} (or stream from Main Pi in Mixer / Connected Pis)`, 'error');
         return;
     }
 
     try {
-        showToast(`Launching ${appState.slideshowConfig.mode} slideshow on ${monitor} monitor(s)...`, 'info');
+        showToast(`${activeNode.name}: Launching ${appState.slideshowConfig.mode} slideshow on ${monitor} monitor(s)...`, 'info');
 
-        const res = await fetch('/api/display', {
+        const res = await apiFetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -106,12 +107,48 @@ export async function launchSlideshow(monitor = 'both') {
         });
         const data = await res.json();
         if (data.success) {
-            showToast(data.message || 'Slideshow started successfully!', 'success');
+            showToast(`${activeNode.name}: ${data.message || 'Slideshow started successfully!'}`, 'success');
             fetchLiveStatus();
         } else {
             showToast('Error: ' + data.error, 'error');
         }
     } catch (err) {
         showToast('Error starting slideshow: ' + err.message, 'error');
+    }
+}
+
+export async function broadcastSlideshow(monitor = 'both') {
+    const sourceCount = isRemoteActive() ? appState.mainImages.length : appState.images.length;
+    if (sourceCount === 0) {
+        showToast('Upload at least one image on Main Pi before broadcasting slideshow', 'error');
+        return;
+    }
+
+    try {
+        showToast('Broadcasting slideshow stream across all connected Pis...', 'info');
+        const res = await fetch('/api/nodes/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'display',
+                payload: {
+                    mode: 'slideshow',
+                    monitor: monitor,
+                    interval: appState.slideshowConfig.interval,
+                    slideshow_mode: appState.slideshowConfig.mode,
+                    fit: appState.slideshowConfig.fit || 'cover',
+                    stream_from_main: true
+                }
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Slideshow active across all connected Pis!', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + (data.error || data.message), 'error');
+        }
+    } catch (err) {
+        showToast('Error broadcasting slideshow: ' + err.message, 'error');
     }
 }

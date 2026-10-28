@@ -46,7 +46,7 @@
                         </svg>
                         <span>Blank Screen</span>
                     </button>
-                    <a href="/viewer" target="_blank" class="btn btn-sm btn-ghost" title="Open Slideshow Viewer in a new browser tab">
+                    <a id="openViewerLink" href="/viewer" target="_blank" class="btn btn-sm btn-ghost" title="Open Slideshow Viewer in a new browser tab">
                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>
                         </svg>
@@ -55,6 +55,24 @@
                 </div>
             </div>
         </header>
+
+        <!-- Multi-Pi Target Switcher & Fleet Controls Bar -->
+        <div class="pi-switcher-bar" id="nodeSwitcherBar">
+            <div class="pi-switcher-left">
+                <span class="pi-switcher-label">
+                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
+                    </svg>
+                    <span>Target Pi:</span>
+                </span>
+                <div class="pi-switcher-pills" id="nodeSwitcherPills">
+                    <!-- Populated dynamically with Main Pi (pi.spear.ac), Secondary Pi (pi2.spear.ac), etc. -->
+                </div>
+            </div>
+            <div class="pi-switcher-right" id="nodeSwitcherRight">
+                <!-- Remote indicator & Wake/Blank All Pis -->
+            </div>
+        </div>
 
         <!-- Main Workspace (Left Sidebar Navigation + Main Content Area) -->
         <div class="app-workspace">
@@ -68,6 +86,15 @@
                             </svg>
                         </span>
                         <span class="tab-label">Dual Monitor Mixer</span>
+                    </button>
+                    <button class="nav-tab" data-tab="nodesTab">
+                        <span class="tab-icon">
+                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">Connected Pis</span>
+                        <span class="counter-badge" id="nodeCountBadge">2</span>
                     </button>
                     <button class="nav-tab" data-tab="imagesTab">
                         <span class="tab-icon">
@@ -105,8 +132,16 @@
                         <span>Hardware Engine</span>
                     </div>
                     <div class="sidebar-hardware-row">
+                        <span class="hw-label">Active Pi</span>
+                        <span class="hw-value" id="sidebarActivePi">Main Pi</span>
+                    </div>
+                    <div class="sidebar-hardware-row">
+                        <span class="hw-label">Host</span>
+                        <span class="hw-value" id="sidebarHostVal">pi.spear.ac</span>
+                    </div>
+                    <div class="sidebar-hardware-row">
                         <span class="hw-label">Display Mode</span>
-                        <span class="hw-value">Dual HDMI</span>
+                        <span class="hw-value" id="sidebarDisplayMode">2 Displays</span>
                     </div>
                     <div class="sidebar-hardware-row">
                         <span class="hw-label">Mon 1 Default</span>
@@ -115,10 +150,6 @@
                     <div class="sidebar-hardware-row">
                         <span class="hw-label">Mon 2 Default</span>
                         <span class="hw-value" id="sidebarMon2Rot">right</span>
-                    </div>
-                    <div class="sidebar-hardware-row">
-                        <span class="hw-label">Service Port</span>
-                        <span class="hw-value">5001</span>
                     </div>
                 </div>
             </aside>
@@ -137,15 +168,24 @@
                                         <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
                                     </svg>
                                     Dual Monitor Mixer
+                                    <span id="mixerActivePiBadge" class="mixer-target-pi-badge is-local">Main Pi (pi.spear.ac)</span>
                                 </h2>
                                 <p class="card-subtext">Control Monitor 1 and Monitor 2 with different websites, slideshows, or images independently</p>
                             </div>
-                            <button class="btn btn-hero-primary" onclick="applyDualMixer()">
-                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-                                </svg>
-                                <span>Apply Both Monitors</span>
-                            </button>
+                            <div class="mixer-header-actions">
+                                <button id="applyMixerAllPisBtn" class="btn btn-subtle-secondary" onclick="applyDualMixerAllPis()" title="Broadcast this Monitor 1 &amp; Monitor 2 setup to all connected Pis">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                                    </svg>
+                                    <span>Apply to All Pis</span>
+                                </button>
+                                <button class="btn btn-hero-primary" onclick="applyDualMixer()">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                                    </svg>
+                                    <span>Apply Both Monitors</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <!-- Display Hardware & Startup Defaults Banner -->
@@ -180,7 +220,7 @@
                                         <div class="monitor-title-wrapper">
                                             <span class="monitor-status-dot"></span>
                                             <h3>Monitor 1</h3>
-                                            <span class="monitor-badge mon1-accent">HDMI-1</span>
+                                            <span class="monitor-badge mon1-accent" id="mon1HwBadge">HDMI-1</span>
                                         </div>
                                         <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
                                             Update Monitor 1 Only
@@ -199,7 +239,7 @@
                                                 </div>
                                                 <div class="preview-bar-right">
                                                     <span class="preview-orientation-badge portrait" id="mon1OrientationBadge">Portrait</span>
-                                                    <span class="preview-res-badge">1080p</span>
+                                                    <span class="preview-res-badge" id="mon1ResBadge">1080p</span>
                                                 </div>
                                             </div>
                                             <div class="preview-monitor-screen" id="mon1PreviewScreen">
@@ -285,7 +325,7 @@
                                         <div class="monitor-title-wrapper">
                                             <span class="monitor-status-dot"></span>
                                             <h3>Monitor 2</h3>
-                                            <span class="monitor-badge mon2-accent">HDMI-2</span>
+                                            <span class="monitor-badge mon2-accent" id="mon2HwBadge">HDMI-2</span>
                                         </div>
                                         <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('2')">
                                             Update Monitor 2 Only
@@ -304,7 +344,7 @@
                                                 </div>
                                                 <div class="preview-bar-right">
                                                     <span class="preview-orientation-badge portrait" id="mon2OrientationBadge">Portrait</span>
-                                                    <span class="preview-res-badge">1080p</span>
+                                                    <span class="preview-res-badge" id="mon2ResBadge">1080p</span>
                                                 </div>
                                             </div>
                                             <div class="preview-monitor-screen" id="mon2PreviewScreen">
@@ -383,6 +423,94 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB: Connected Pis & Multi-Display Fleet Control -->
+                <!-- ========================================================= -->
+                <section id="nodesTab" class="tab-content">
+                    <div class="card nodes-master-card">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h2>
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>
+                                    </svg>
+                                    Connected Pis &amp; Display Wall
+                                </h2>
+                                <p class="card-subtext">Connect Raspberry Pis running Pi Display Control (Main at <code>pi.spear.ac</code>, Secondary at <code>pi2.spear.ac</code>, and additional nodes)</p>
+                            </div>
+                            <div class="nodes-header-actions">
+                                <button type="button" class="btn btn-sm btn-subtle-secondary" onclick="refreshNodesOverview(true)">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+                                    </svg>
+                                    <span>Refresh Status</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-hero-primary" onclick="openAddNodeModal()">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>
+                                    </svg>
+                                    <span>Connect Another Pi</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <!-- Fleet Broadcast Launcher -->
+                            <div class="fleet-broadcast-banner">
+                                <div class="fleet-broadcast-header">
+                                    <div class="fleet-broadcast-title">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                                        </svg>
+                                        <span>Broadcast to All Connected Pis &amp; Displays</span>
+                                    </div>
+                                    <span class="fleet-broadcast-hint">Simultaneously push content or power state across Main &amp; Secondary Pis</span>
+                                </div>
+                                <div class="fleet-broadcast-controls">
+                                    <div class="form-group broadcast-field">
+                                        <label for="broadcastContentType">Content Source</label>
+                                        <select id="broadcastContentType" class="form-select" onchange="onBroadcastTypeChange()">
+                                            <option value="website">Saved Website / Autodarts</option>
+                                            <option value="main_slideshow">Stream Main Pi Slideshow</option>
+                                            <option value="local_slideshow">Each Pi's Local Slideshow</option>
+                                            <option value="main_image">Stream Single Image from Main Pi</option>
+                                        </select>
+                                    </div>
+                                    <div id="broadcastWebsiteGroup" class="form-group broadcast-field">
+                                        <label for="broadcastWebsitePicker">Website</label>
+                                        <select id="broadcastWebsitePicker" class="form-select"></select>
+                                    </div>
+                                    <div id="broadcastImageGroup" class="form-group broadcast-field" style="display: none;">
+                                        <label for="broadcastImagePicker">Image</label>
+                                        <select id="broadcastImagePicker" class="form-select"></select>
+                                    </div>
+                                    <div class="form-group broadcast-field broadcast-mon-field">
+                                        <label for="broadcastMonitorTarget">Displays</label>
+                                        <select id="broadcastMonitorTarget" class="form-select">
+                                            <option value="both">Both Monitors</option>
+                                            <option value="1">Monitor 1 Only</option>
+                                            <option value="2">Monitor 2 Only</option>
+                                        </select>
+                                    </div>
+                                    <div class="broadcast-btn-wrap">
+                                        <button type="button" class="btn btn-hero-primary" onclick="handleBroadcastSubmit()">
+                                            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                                            </svg>
+                                            <span>Broadcast to All Pis</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Connected Pi Devices Grid -->
+                            <div id="connectedNodesGrid" class="connected-nodes-grid">
+                                <!-- Injected dynamically by nodes.js -->
                             </div>
                         </div>
                     </div>
@@ -490,6 +618,12 @@
                                             <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
                                         </svg>
                                         <span>Monitor 2</span>
+                                    </button>
+                                    <button id="launchSlideshowAllPisBtn" class="btn btn-subtle-secondary" onclick="broadcastSlideshow('both')" title="Stream slideshow across Main + Secondary connected Pis">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                                        </svg>
+                                        <span>All Connected Pis</span>
                                     </button>
                                 </div>
                             </div>
@@ -672,6 +806,14 @@
                             </select>
                         </div>
 
+                        <div id="scheduleTargetNodeGroup" class="form-group">
+                            <label for="scheduleTargetNode">Target Pi(s)</label>
+                            <select id="scheduleTargetNode" class="form-select">
+                                <option value="local">Main Pi Only</option>
+                                <option value="all">All Connected Pis</option>
+                            </select>
+                        </div>
+
                         <div id="scheduleMonitorGroup" class="form-group">
                             <label for="scheduleMonitor">Target Monitor(s)</label>
                             <select id="scheduleMonitor" class="form-select">
@@ -707,6 +849,56 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Schedule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Connect / Edit Pi Node Modal -->
+        <div id="nodeModal" class="modal-overlay" style="display: none;">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3 id="nodeModalTitle">Connect Another Raspberry Pi</h3>
+                    <button class="modal-close" onclick="closeNodeModal()">&times;</button>
+                </div>
+                <form id="saveNodeForm">
+                    <input type="hidden" id="nodeEditId" value="">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="nodeNameInput">Pi Display Name</label>
+                            <input type="text" id="nodeNameInput" class="form-input" placeholder="e.g., Secondary Pi, Living Room Pi" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nodeUrlInput">Hostname or URL</label>
+                            <input type="text" id="nodeUrlInput" class="form-input" placeholder="e.g., pi2.spear.ac or http://192.168.1.50:5000" required>
+                            <small class="form-hint">Must be running Pi Display Control. Domains default to HTTPS (<code>https://pi2.spear.ac</code>), LAN IPs/ports to HTTP.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nodeRoleInput">Node Role</label>
+                            <select id="nodeRoleInput" class="form-select">
+                                <option value="secondary">Secondary Pi</option>
+                                <option value="main">Main Pi</option>
+                                <option value="satellite">Satellite Display Pi</option>
+                            </select>
+                        </div>
+
+                        <div id="nodeSslGroup" class="form-group">
+                            <label class="custom-checkbox-label">
+                                <input type="checkbox" id="nodeVerifySslInput" class="custom-checkbox" checked>
+                                <span>Verify SSL/TLS certificate (uncheck only for self-signed LAN certificates)</span>
+                            </label>
+                        </div>
+
+                        <div id="nodeProbeResult" class="node-probe-box" style="display: none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="testNodeConnBtn" class="btn btn-subtle-secondary" onclick="handleTestNodeConnection()">
+                            Test Connection
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="closeNodeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Pi</button>
                     </div>
                 </form>
             </div>

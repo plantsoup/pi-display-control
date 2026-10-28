@@ -38,9 +38,25 @@ def scheduler_worker():
                     if target_time == current_time_str:
                         if not days or current_day_str in [d.lower() for d in days]:
                             action = sch.get("action", "slideshow")
-                            params = sch.get("params", {})
-                            print(f"[SCHEDULER] Triggering schedule: {sch.get('name', 'Unnamed')} -> {action} at {current_time_str}")
-                            trigger_display_action(action, params)
+                            params = dict(sch.get("params", {}) or {})
+                            target_node = params.get("target_node", "local") or "local"
+                            print(f"[SCHEDULER] Triggering schedule: {sch.get('name', 'Unnamed')} -> {action} (target={target_node}) at {current_time_str}")
+                            if target_node == "local":
+                                trigger_display_action(action, params)
+                            else:
+                                from .nodes_service import dispatch_to_node, broadcast_to_nodes
+                                sched_action = action if action in ("blank", "wake") else "display"
+                                sched_payload = dict(params)
+                                if action == "slideshow":
+                                    sched_payload["mode"] = "slideshow"
+                                    sched_payload["slideshow_mode"] = params.get("mode", "random")
+                                    sched_payload.setdefault("stream_from_main", True)
+                                elif action == "website":
+                                    sched_payload["mode"] = "website"
+                                if target_node == "all":
+                                    broadcast_to_nodes(action=sched_action, payload=sched_payload, include_local=True)
+                                else:
+                                    dispatch_to_node(target_node, action=sched_action, payload=sched_payload)
 
                 last_triggered_minute = minute_key
         except Exception as e:

@@ -38,6 +38,7 @@ from services.storage import (
     IMAGES_CONFIG_FILE,
     SLIDESHOW_CONFIG_FILE,
     SCHEDULES_CONFIG_FILE,
+    NODES_CONFIG_FILE,
     UPLOAD_FOLDER,
     LEGACY_CONFIG,
     LEGACY_IMAGES,
@@ -52,6 +53,8 @@ from services.storage import (
     save_slideshow_config,
     load_schedules,
     save_schedules,
+    load_nodes_config,
+    save_nodes_config,
     allowed_file
 )
 from services.display_service import (

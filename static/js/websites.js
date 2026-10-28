@@ -2,16 +2,21 @@
  * Websites & Autodarts Management
  */
 
-import { appState, showToast, escapeHtml } from './state.js';
+import { appState, showToast, escapeHtml, apiFetch, isRemoteActive, getActiveNode } from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
 import { getIcon } from './icons.js';
 
 export async function loadWebsites() {
     try {
-        const res = await fetch('/api/websites');
+        const res = await apiFetch('/api/websites');
         const websites = await res.json();
+        if (!Array.isArray(websites)) return;
+
         appState.websites = websites;
+        if (!isRemoteActive()) {
+            appState.mainWebsites = websites;
+        }
         const countBadge = document.getElementById('websiteCountBadge');
         if (countBadge) countBadge.textContent = websites.length;
         renderWebsitesGrid();
@@ -44,6 +49,8 @@ export function renderWebsitesGrid() {
         return;
     }
 
+    const hasRemotes = (appState.remoteNodes || []).length > 0;
+
     appState.websites.forEach((site, idx) => {
         const isDefault = !site.url || site.is_default;
         const favicon = getFaviconUrl(site.url);
@@ -73,7 +80,11 @@ export function renderWebsitesGrid() {
                 <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '2')">
                     ${getIcon('monitor')} Monitor 2
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})">
+                ${hasRemotes ? `
+                <button class="btn btn-sm btn-subtle-secondary" onclick="broadcastWebsite(${idx})" title="Launch across Main + Secondary connected Pis">
+                    ${getIcon('broadcast')} All Pis
+                </button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})" ${hasRemotes ? 'style="grid-column: 1 / -1;"' : ''}>
                     ${getIcon('trash')} Delete
                 </button>
             </div>
@@ -88,7 +99,7 @@ export async function handleAddWebsite(e) {
     const url = document.getElementById('websiteUrl').value.trim();
 
     try {
-        const res = await fetch('/api/websites', {
+        const res = await apiFetch('/api/websites', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, url })
@@ -98,6 +109,9 @@ export async function handleAddWebsite(e) {
             showToast(`Website "${name}" saved!`, 'success');
             document.getElementById('addWebsiteForm').reset();
             appState.websites = data.websites;
+            if (!isRemoteActive()) {
+                appState.mainWebsites = data.websites;
+            }
             const countBadge = document.getElementById('websiteCountBadge');
             if (countBadge) countBadge.textContent = data.websites.length;
             renderWebsitesGrid();
@@ -114,9 +128,10 @@ export async function handleAddWebsite(e) {
 export async function launchWebsite(index, monitor = 'both') {
     const site = appState.websites[index];
     if (!site) return;
+    const activeNode = getActiveNode();
 
     try {
-        showToast(`Launching ${site.name} on ${monitor} monitor(s)...`, 'info');
+        showToast(`${activeNode.name}: Launching ${site.name} on ${monitor} monitor(s)...`, 'info');
         const payload = {
             mode: 'website',
             monitor: monitor
@@ -130,14 +145,14 @@ export async function launchWebsite(index, monitor = 'both') {
             payload.url2 = site.url || '';
         }
 
-        const res = await fetch('/api/display', {
+        const res = await apiFetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
-            showToast(data.message || 'Website launched successfully', 'success');
+            showToast(`${activeNode.name}: ${data.message || 'Website launched successfully'}`, 'success');
             fetchLiveStatus();
         } else {
             showToast('Error: ' + data.error, 'error');
@@ -147,15 +162,49 @@ export async function launchWebsite(index, monitor = 'both') {
     }
 }
 
+export async function broadcastWebsite(index, monitor = 'both') {
+    const site = appState.websites[index];
+    if (!site) return;
+
+    try {
+        showToast(`Broadcasting "${site.name}" to all connected Pis...`, 'info');
+        const res = await fetch('/api/nodes/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'display',
+                payload: {
+                    mode: 'website',
+                    monitor: monitor,
+                    url1: site.url || '',
+                    url2: site.url || ''
+                }
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || `Launched ${site.name} on all Pis`, 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + (data.error || data.message), 'error');
+        }
+    } catch (err) {
+        showToast('Error broadcasting website: ' + err.message, 'error');
+    }
+}
+
 export async function deleteWebsite(index) {
     if (!confirm('Are you sure you want to delete this website?')) return;
 
     try {
-        const res = await fetch(`/api/websites/${index}`, { method: 'DELETE' });
+        const res = await apiFetch(`/api/websites/${index}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             showToast('Website deleted', 'success');
             appState.websites = data.websites;
+            if (!isRemoteActive()) {
+                appState.mainWebsites = data.websites;
+            }
             const countBadge = document.getElementById('websiteCountBadge');
             if (countBadge) countBadge.textContent = data.websites.length;
             renderWebsitesGrid();
@@ -171,8 +220,9 @@ export async function deleteWebsite(index) {
 
 export function populateWebsiteOptions() {
     const picker = document.getElementById('scheduleWebsitePicker');
-    if (!picker) return;
-    picker.innerHTML = appState.websites.map(w => 
-        `<option value="${escapeHtml(w.url || '')}">${escapeHtml(w.name)}</option>`
-    ).join('');
+    if (picker) {
+        picker.innerHTML = appState.websites.map(w =>
+            `<option value="${escapeHtml(w.url || '')}">${escapeHtml(w.name)}</option>`
+        ).join('');
+    }
 }

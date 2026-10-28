@@ -5,6 +5,10 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 ## Key Features
 
 - 🖥️ **Multi-Monitor Display Control**: Independent control for Monitor 1, Monitor 2, or Both Displays.
+- 🔗 **Multi-Pi Fleet & Remote Displays**:
+  - Pre-configured for **Main Pi** (`https://pi.spear.ac`) and **Secondary Pi** (`https://pi2.spear.ac`), with UI & API support to connect additional Pis running Pi Display Control.
+  - **1-Click Target Pi Switcher** in the header to control any connected Pi's monitors, orientations, websites, images, slideshows, power state, and schedules via server-side proxy (no CORS issues).
+  - **Connected Pis & Display Wall** tab to view all Pis and their displays together, rotate remote monitors, broadcast content/power (`Wake All` / `Blank All`) across all Pis, stream Main Pi's slideshow/images directly to Secondary Pi's Chromium kiosk, or sync websites and images between Pis.
 - 🖼️ **Image Slideshow Studio**:
   - **Randomize Mode (Shuffle)** or Sequential cycling.
   - **Timing Intervals**: Change images automatically (5s, 10s, 30s, 1m, 5m, custom interval).
@@ -62,9 +66,21 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 
 ### Automated Scheduler
 - `GET /api/schedules` - List all scheduled time triggers.
-- `POST /api/schedules` - Create a new time-of-day schedule.
+- `POST /api/schedules` - Create a new time-of-day schedule (supports targeting `local`, `all`, or a specific connected Pi).
 - `PUT /api/schedules/<id>/toggle` - Toggle schedule active/inactive.
 - `DELETE /api/schedules/<id>` - Delete a schedule.
+
+### Connected Pis & Multi-Display Fleet
+- `GET /api/nodes` - List local and connected remote Pi nodes (`pi.spear.ac`, `pi2.spear.ac`, etc.).
+- `GET /api/nodes/overview` - Concurrent live health, display status, and discovered monitors across all Pis.
+- `POST /api/nodes/probe` - Test connectivity and auto-discover a Pi running Pi Display Control.
+- `POST /api/nodes` - Connect a new remote Pi node.
+- `PUT /api/nodes/<id>` - Update local or remote Pi node configuration.
+- `DELETE /api/nodes/<id>` - Disconnect a remote Pi node.
+- `POST /api/nodes/<id>/display` - Dispatch display content, stream Main Pi viewer, wake, blank, or rotate on a target Pi.
+- `POST /api/nodes/broadcast` - Broadcast display content, wake, or blank across all connected Pis.
+- `POST /api/nodes/<id>/sync` - Sync saved websites, slideshow settings, and uploaded images to a remote Pi.
+- `ANY /api/nodes/<id>/proxy/<api_path>` - Transparent server-to-server API & media proxy to a connected Pi.
 
 ---
 
@@ -75,6 +91,9 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 | `PORT` | `5000` | HTTP server listening port |
 | `DATA_DIR` | `/data` or `./data` | Directory for JSON data and uploaded image storage |
 | `WORK_DIR` | `~` | Home/working directory for user configs |
+| `MAIN_PI_URL` | `https://pi.spear.ac` | Default public URL for Main Pi |
+| `SECONDARY_PI_URL` | `https://pi2.spear.ac` | Default public URL for Secondary Pi |
+| `PI_NODE_ROLE` | *(auto-detected)* | Optional `'main'` or `'secondary'` override for default node seeding |
 
 ---
 

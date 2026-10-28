@@ -2,7 +2,7 @@
  * Image Library & Uploads
  */
 
-import { appState, showToast, escapeHtml } from './state.js';
+import { appState, showToast, escapeHtml, apiFetch, apiUrl, isRemoteActive, getActiveNode } from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
 import { saveSlideshowConfigChanges, updateSlideshowSummaryText } from './slideshow.js';
@@ -10,9 +10,14 @@ import { getIcon } from './icons.js';
 
 export async function loadImages() {
     try {
-        const res = await fetch('/api/images');
+        const res = await apiFetch('/api/images');
         const images = await res.json();
+        if (!Array.isArray(images)) return;
+
         appState.images = images;
+        if (!isRemoteActive()) {
+            appState.mainImages = images;
+        }
         const countBadge = document.getElementById('imageCountBadge');
         if (countBadge) countBadge.textContent = images.length;
         renderImagesGrid();
@@ -28,35 +33,42 @@ export function renderImagesGrid() {
 
     list.innerHTML = '';
     if (appState.images.length === 0) {
-        list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No images uploaded yet. Upload images above to start your slideshow!</div>';
+        list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No images uploaded yet. Upload images to start your slideshow!</div>';
         return;
     }
 
     const selectedIds = new Set(appState.slideshowConfig.selected_images || []);
+    const hasRemotes = (appState.remoteNodes || []).length > 0 && !isRemoteActive();
 
     appState.images.forEach((img, idx) => {
         const isSelected = selectedIds.size === 0 || selectedIds.has(img.id);
         const card = document.createElement('div');
         card.className = `image-card ${isSelected ? 'selected' : ''}`;
-        
+        const thumbUrl = apiUrl(`/api/images/${encodeURIComponent(img.filename)}`);
+        const safeFnJs = String(img.filename || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
         card.innerHTML = `
             <div class="image-thumbnail-box">
-                <img src="/api/images/${img.filename}" alt="${escapeHtml(img.name)}" loading="lazy">
+                <img src="${thumbUrl}" alt="${escapeHtml(img.name)}" loading="lazy">
             </div>
             <div class="image-meta">
                 <h4>${escapeHtml(img.name)}</h4>
                 <p>${escapeHtml(img.original_filename || '')}</p>
             </div>
             <div class="image-card-actions">
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', 'both')" title="Show on both monitors">
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', 'both')" title="Show on both monitors">
                     ${getIcon('rocket')} Both
                 </button>
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', '1')" title="Show on Monitor 1 only">
-                    ${getIcon('monitor')} M1
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '1')" title="Show on Monitor 1 only">
+                    M1
                 </button>
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${img.filename}', '2')" title="Show on Monitor 2 only">
-                    ${getIcon('monitor')} M2
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '2')" title="Show on Monitor 2 only">
+                    M2
                 </button>
+                ${hasRemotes ? `
+                <button class="btn btn-xs btn-subtle-secondary" onclick="broadcastSingleImage('${safeFnJs}')" title="Stream image across all connected Pis">
+                    ${getIcon('broadcast')} All
+                </button>` : ''}
                 <button class="btn btn-xs btn-danger" onclick="deleteImage(${idx})" title="Delete image">
                     ${getIcon('trash')}
                 </button>
@@ -71,6 +83,7 @@ export async function handleUploadImage(e) {
     const nameInput = document.getElementById('imageName');
     const fileInput = document.getElementById('imageFile');
     const submitBtn = document.getElementById('uploadSubmitBtn');
+    const activeNode = getActiveNode();
 
     if (!fileInput || !fileInput.files[0]) {
         showToast('Please select a file to upload', 'error');
@@ -83,18 +96,21 @@ export async function handleUploadImage(e) {
 
     try {
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading...';
+        submitBtn.textContent = `Uploading to ${activeNode.name}...`;
 
-        const res = await fetch('/api/images', {
+        const res = await apiFetch('/api/images', {
             method: 'POST',
             body: formData
         });
         const data = await res.json();
 
         if (data.success) {
-            showToast(`Image "${nameInput.value}" uploaded successfully!`, 'success');
+            showToast(`Image "${nameInput.value}" uploaded to ${activeNode.name}!`, 'success');
             document.getElementById('uploadImageForm').reset();
             appState.images = data.images;
+            if (!isRemoteActive()) {
+                appState.mainImages = data.images;
+            }
             const countBadge = document.getElementById('imageCountBadge');
             if (countBadge) countBadge.textContent = data.images.length;
             renderImagesGrid();
@@ -113,8 +129,9 @@ export async function handleUploadImage(e) {
 }
 
 export async function displaySingleImage(filename, monitor = 'both') {
+    const activeNode = getActiveNode();
     try {
-        showToast(`Displaying image on ${monitor} monitor(s)...`, 'info');
+        showToast(`${activeNode.name}: Displaying image on ${monitor} monitor(s)...`, 'info');
         const payload = {
             mode: 'image',
             monitor: monitor,
@@ -129,14 +146,14 @@ export async function displaySingleImage(filename, monitor = 'both') {
             payload.image2 = filename;
         }
 
-        const res = await fetch('/api/display', {
+        const res = await apiFetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`Image displayed on ${monitor} monitor(s)`, 'success');
+            showToast(`${activeNode.name}: Image displayed on ${monitor} monitor(s)`, 'success');
             fetchLiveStatus();
         } else {
             showToast('Error: ' + data.error, 'error');
@@ -146,15 +163,48 @@ export async function displaySingleImage(filename, monitor = 'both') {
     }
 }
 
+export async function broadcastSingleImage(filename, monitor = 'both') {
+    try {
+        showToast('Streaming image to all connected Pis...', 'info');
+        const res = await fetch('/api/nodes/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'display',
+                payload: {
+                    mode: 'image',
+                    monitor: monitor,
+                    image1: filename,
+                    image2: filename,
+                    fit: appState.slideshowConfig.fit || 'cover',
+                    stream_from_main: true
+                }
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message || 'Image broadcasted to all Pis!', 'success');
+            fetchLiveStatus();
+        } else {
+            showToast('Error: ' + (data.error || data.message), 'error');
+        }
+    } catch (err) {
+        showToast('Error broadcasting image: ' + err.message, 'error');
+    }
+}
+
 export async function deleteImage(index) {
     if (!confirm('Are you sure you want to delete this image?')) return;
 
     try {
-        const res = await fetch(`/api/images/${index}`, { method: 'DELETE' });
+        const res = await apiFetch(`/api/images/${index}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             showToast('Image deleted successfully', 'success');
             appState.images = data.images;
+            if (!isRemoteActive()) {
+                appState.mainImages = data.images;
+            }
             const countBadge = document.getElementById('imageCountBadge');
             if (countBadge) countBadge.textContent = data.images.length;
             renderImagesGrid();

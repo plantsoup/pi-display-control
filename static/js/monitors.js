@@ -2,14 +2,14 @@
  * Monitor Hardware, Orientations & Default Persistence Management
  */
 
-import { appState, showToast, escapeHtml } from './state.js';
+import { appState, showToast, escapeHtml, apiFetch, getActiveNode, formatHostShort } from './state.js';
 import { getIcon } from './icons.js';
 
 export async function loadMonitorsData() {
     try {
-        const res = await fetch('/api/display/monitors');
+        const res = await apiFetch('/api/display/monitors');
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
             appState.monitors = data.monitors || [];
             appState.monitorDefaults = data.defaults || { "1": "left", "2": "right" };
             appState.availableRotations = data.available_rotations || [];
@@ -27,13 +27,13 @@ export function renderMonitorRotationControls() {
         const select = document.getElementById(`mixerMon${monId}Rotation`);
         if (!select) return;
 
-        const mon = appState.monitors.find(m => String(m.index) === String(monId)) || {};
-        const currentRot = mon.current_rotation || appState.monitorDefaults[monId] || 'normal';
+        const mon = appState.monitors.find(m => String(m.index) === String(monId)) || null;
+        const currentRot = (mon && mon.current_rotation) || appState.monitorDefaults[monId] || 'normal';
         const defaultRot = appState.monitorDefaults[monId] || 'normal';
 
         // Populate options if empty
         if (select.children.length === 0 && appState.availableRotations.length > 0) {
-            select.innerHTML = appState.availableRotations.map(r => 
+            select.innerHTML = appState.availableRotations.map(r =>
                 `<option value="${escapeHtml(r.value)}">${escapeHtml(r.label)}</option>`
             ).join('');
         }
@@ -41,18 +41,37 @@ export function renderMonitorRotationControls() {
         // Set value to current active rotation
         select.value = currentRot;
 
+        // Update connector badge & resolution badge on monitor card
+        const hwBadge = document.getElementById(`mon${monId}HwBadge`);
+        if (hwBadge) {
+            if (mon && mon.name) {
+                hwBadge.textContent = mon.name;
+            } else {
+                hwBadge.textContent = `HDMI-${monId}`;
+            }
+        }
+
+        const resBadge = document.getElementById(`mon${monId}ResBadge`);
+        if (resBadge) {
+            if (mon && mon.width && mon.height) {
+                resBadge.textContent = `${mon.width}×${mon.height}`;
+            } else {
+                resBadge.textContent = '1080p';
+            }
+        }
+
         // Update badge and default indicator
         const badge = document.getElementById(`mixerMon${monId}RotationBadge`);
         if (badge) {
             const rotMeta = appState.availableRotations.find(r => r.value === currentRot);
             const label = rotMeta ? rotMeta.label.split('(')[0].trim() : currentRot;
             const isDefault = currentRot === defaultRot;
-            
+
             badge.innerHTML = `
-                <span class="active-rot-pill">${label}</span>
-                ${isDefault 
+                <span class="active-rot-pill">${escapeHtml(label)}</span>
+                ${isDefault
                     ? `<span class="default-star-badge" title="Saved as Startup Default">${getIcon('star')} Default</span>`
-                    : `<span class="default-rot-hint">Default: ${defaultRot}</span>`}
+                    : `<span class="default-rot-hint">Default: ${escapeHtml(defaultRot)}</span>`}
             `;
         }
 
@@ -78,8 +97,6 @@ export function renderMonitorRotationControls() {
 
 export function updateHardwareStatusBar() {
     const bar = document.getElementById('hardwareDefaultsSummary');
-    if (!bar) return;
-
     const def1 = appState.monitorDefaults['1'] || 'left';
     const def2 = appState.monitorDefaults['2'] || 'right';
 
@@ -88,15 +105,28 @@ export function updateHardwareStatusBar() {
         return r ? r.label.split('/')[0].replace('Landscape', 'Land').replace('Portrait', 'Port').replace('(', '').trim() : val;
     };
 
-    bar.innerHTML = `
-        <span class="def-mon-tag">Mon 1: <strong>${getCleanName(def1)}</strong></span>
-        <span class="def-mon-separator">&bull;</span>
-        <span class="def-mon-tag">Mon 2: <strong>${getCleanName(def2)}</strong></span>
-    `;
+    if (bar) {
+        bar.innerHTML = `
+            <span class="def-mon-tag">Mon 1: <strong>${escapeHtml(getCleanName(def1))}</strong></span>
+            <span class="def-mon-separator">&bull;</span>
+            <span class="def-mon-tag">Mon 2: <strong>${escapeHtml(getCleanName(def2))}</strong></span>
+        `;
+    }
 
-    // Also update sidebar hardware summary if present
+    // Update sidebar hardware summary for active Pi
+    const activeNode = getActiveNode();
+    const sbTarget = document.getElementById('sidebarActivePi');
+    const sbHost = document.getElementById('sidebarHostVal');
     const sbRow1 = document.getElementById('sidebarMon1Rot');
     const sbRow2 = document.getElementById('sidebarMon2Rot');
+    const sbDisplays = document.getElementById('sidebarDisplayMode');
+
+    if (sbTarget) sbTarget.textContent = activeNode.name || 'Main Pi';
+    if (sbHost) sbHost.textContent = formatHostShort(activeNode.url || 'pi.spear.ac');
+    if (sbDisplays) {
+        const count = appState.monitors.length || 2;
+        sbDisplays.textContent = count === 1 ? 'Single HDMI' : `${count} Displays`;
+    }
     if (sbRow1) sbRow1.textContent = def1;
     if (sbRow2) sbRow2.textContent = def2;
 }
@@ -108,10 +138,11 @@ export async function handleApplyMonitorRotation(monId) {
 
     const rotation = select.value;
     const saveDefault = saveDefaultBox ? saveDefaultBox.checked : false;
+    const activeNode = getActiveNode();
 
     try {
-        showToast(`Applying ${rotation} rotation to Monitor ${monId}...`, 'info');
-        const res = await fetch('/api/display/rotate', {
+        showToast(`${activeNode.name}: Applying ${rotation} rotation to Monitor ${monId}...`, 'info');
+        const res = await apiFetch('/api/display/rotate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -139,9 +170,10 @@ export async function handleSetDefaultRotation(monId) {
     if (!select) return;
 
     const rotation = select.value;
+    const activeNode = getActiveNode();
     try {
-        showToast(`Saving ${rotation} as startup default for Monitor ${monId}...`, 'info');
-        const res = await fetch('/api/display/defaults', {
+        showToast(`${activeNode.name}: Saving ${rotation} as startup default for Monitor ${monId}...`, 'info');
+        const res = await apiFetch('/api/display/defaults', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -167,10 +199,11 @@ export async function handleSaveAllCurrentAsDefault() {
     const sel2 = document.getElementById('mixerMon2Rotation');
     const rot1 = sel1 ? sel1.value : (appState.monitorDefaults['1'] || 'left');
     const rot2 = sel2 ? sel2.value : (appState.monitorDefaults['2'] || 'right');
+    const activeNode = getActiveNode();
 
     try {
-        showToast('Saving current rotations as startup defaults...', 'info');
-        const res = await fetch('/api/display/defaults', {
+        showToast(`${activeNode.name}: Saving current rotations as startup defaults...`, 'info');
+        const res = await apiFetch('/api/display/defaults', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -192,9 +225,10 @@ export async function handleSaveAllCurrentAsDefault() {
 }
 
 export async function handleResetToDefaults() {
+    const activeNode = getActiveNode();
     try {
-        showToast('Restoring monitors to saved startup defaults...', 'info');
-        const res = await fetch('/api/display/reset-defaults', {
+        showToast(`${activeNode.name}: Restoring monitors to saved startup defaults...`, 'info');
+        const res = await apiFetch('/api/display/reset-defaults', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ restart_browser: true })

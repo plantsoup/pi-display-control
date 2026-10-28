@@ -5,12 +5,82 @@
 
 import { appState, showToast, escapeHtml } from './js/state.js';
 import { fetchLiveStatus, handleBlankDisplay, handleWakeDisplay } from './js/display.js';
-import { onMixerTypeChange, populateMixerOptions, updateMixerPreview, getMonitorTargetObject, applyDualMixer, applySingleMonitor } from './js/mixer.js';
-import { loadSlideshowConfig, renderSlideshowControls, updateSlideshowSummaryText, setSlideshowMode, updateSlideshowSetting, saveSlideshowConfigChanges, launchSlideshow } from './js/slideshow.js';
-import { loadImages, renderImagesGrid, handleUploadImage, displaySingleImage, deleteImage, selectAllImages } from './js/images.js';
-import { loadWebsites, renderWebsitesGrid, handleAddWebsite, launchWebsite, deleteWebsite, populateWebsiteOptions } from './js/websites.js';
-import { loadSchedules, renderSchedulesList, openAddScheduleModal, closeScheduleModal, onScheduleActionChange, handleCreateSchedule, toggleSchedule, deleteSchedule } from './js/schedules.js';
-import { loadMonitorsData, handleApplyMonitorRotation, handleSetDefaultRotation, handleSaveAllCurrentAsDefault, handleResetToDefaults } from './js/monitors.js';
+import {
+    onMixerTypeChange,
+    populateMixerOptions,
+    updateMixerPreview,
+    getMonitorTargetObject,
+    applyDualMixer,
+    applyDualMixerAllPis,
+    applySingleMonitor
+} from './js/mixer.js';
+import {
+    loadSlideshowConfig,
+    renderSlideshowControls,
+    updateSlideshowSummaryText,
+    setSlideshowMode,
+    updateSlideshowSetting,
+    saveSlideshowConfigChanges,
+    launchSlideshow,
+    broadcastSlideshow
+} from './js/slideshow.js';
+import {
+    loadImages,
+    renderImagesGrid,
+    handleUploadImage,
+    displaySingleImage,
+    broadcastSingleImage,
+    deleteImage,
+    selectAllImages
+} from './js/images.js';
+import {
+    loadWebsites,
+    renderWebsitesGrid,
+    handleAddWebsite,
+    launchWebsite,
+    broadcastWebsite,
+    deleteWebsite,
+    populateWebsiteOptions
+} from './js/websites.js';
+import {
+    loadSchedules,
+    renderSchedulesList,
+    openAddScheduleModal,
+    closeScheduleModal,
+    onScheduleActionChange,
+    handleCreateSchedule,
+    toggleSchedule,
+    deleteSchedule
+} from './js/schedules.js';
+import {
+    loadMonitorsData,
+    handleApplyMonitorRotation,
+    handleSetDefaultRotation,
+    handleSaveAllCurrentAsDefault,
+    handleResetToDefaults
+} from './js/monitors.js';
+import {
+    loadNodesConfig,
+    refreshNodesOverview,
+    switchActiveNode,
+    renderNodeSwitcherBar,
+    renderNodesGrid,
+    populateBroadcastOptions,
+    onBroadcastTypeChange,
+    handleBroadcastSubmit,
+    handleFleetPower,
+    handleNodePower,
+    handleNodeQuickRotate,
+    handleNodeQuickPush,
+    handleSyncNode,
+    handleProbeExistingNode,
+    openAddNodeModal,
+    openEditNodeModal,
+    closeNodeModal,
+    handleTestNodeConnection,
+    handleSaveNode,
+    handleDeleteNode
+} from './js/nodes.js';
 
 // Expose handlers to window for inline HTML onclick/onchange attributes
 Object.assign(window, {
@@ -25,6 +95,7 @@ Object.assign(window, {
     updateMixerPreview,
     getMonitorTargetObject,
     applyDualMixer,
+    applyDualMixerAllPis,
     applySingleMonitor,
     loadSlideshowConfig,
     renderSlideshowControls,
@@ -33,16 +104,19 @@ Object.assign(window, {
     updateSlideshowSetting,
     saveSlideshowConfigChanges,
     launchSlideshow,
+    broadcastSlideshow,
     loadImages,
     renderImagesGrid,
     handleUploadImage,
     displaySingleImage,
+    broadcastSingleImage,
     deleteImage,
     selectAllImages,
     loadWebsites,
     renderWebsitesGrid,
     handleAddWebsite,
     launchWebsite,
+    broadcastWebsite,
     deleteWebsite,
     populateWebsiteOptions,
     loadSchedules,
@@ -57,7 +131,28 @@ Object.assign(window, {
     handleApplyMonitorRotation,
     handleSetDefaultRotation,
     handleSaveAllCurrentAsDefault,
-    handleResetToDefaults
+    handleResetToDefaults,
+    loadNodesConfig,
+    refreshNodesOverview,
+    switchActiveNode,
+    renderNodeSwitcherBar,
+    renderNodesGrid,
+    populateBroadcastOptions,
+    onBroadcastTypeChange,
+    handleBroadcastSubmit,
+    handleFleetPower,
+    handleNodePower,
+    handleNodeQuickRotate,
+    handleNodeQuickPush,
+    handleSyncNode,
+    handleProbeExistingNode,
+    openAddNodeModal,
+    openEditNodeModal,
+    closeNodeModal,
+    handleTestNodeConnection,
+    handleSaveNode,
+    handleDeleteNode,
+    refreshActiveNodeData
 });
 
 // Initialize Application
@@ -66,8 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     refreshAllData();
 
-    // Poll live status every 10 seconds
+    // Poll active Pi live status every 10 seconds and connected Pis overview every 20 seconds
     setInterval(fetchLiveStatus, 10000);
+    setInterval(() => refreshNodesOverview(false), 20000);
 });
 
 // -----------------------------------------------------------------------------
@@ -86,6 +182,9 @@ function setupTabNavigation() {
             if (targetContent) {
                 targetContent.classList.add('active');
             }
+            if (targetContentId === 'nodesTab') {
+                refreshNodesOverview(false);
+            }
         });
     });
 }
@@ -94,7 +193,6 @@ function setupTabNavigation() {
 // Global Event Listeners
 // -----------------------------------------------------------------------------
 function setupEventListeners() {
-    // Forms
     const addWebsiteForm = document.getElementById('addWebsiteForm');
     if (addWebsiteForm) addWebsiteForm.addEventListener('submit', handleAddWebsite);
 
@@ -104,7 +202,9 @@ function setupEventListeners() {
     const createScheduleForm = document.getElementById('createScheduleForm');
     if (createScheduleForm) createScheduleForm.addEventListener('submit', handleCreateSchedule);
 
-    // Screen power buttons
+    const saveNodeForm = document.getElementById('saveNodeForm');
+    if (saveNodeForm) saveNodeForm.addEventListener('submit', handleSaveNode);
+
     const stopDisplayBtn = document.getElementById('stopDisplay');
     if (stopDisplayBtn) stopDisplayBtn.addEventListener('click', handleBlankDisplay);
 
@@ -115,7 +215,7 @@ function setupEventListeners() {
 // -----------------------------------------------------------------------------
 // Data Fetching & Sync
 // -----------------------------------------------------------------------------
-async function refreshAllData() {
+async function refreshActiveNodeData() {
     await Promise.all([
         loadWebsites(),
         loadImages(),
@@ -125,4 +225,12 @@ async function refreshAllData() {
         fetchLiveStatus()
     ]);
     populateMixerOptions();
+    populateBroadcastOptions();
+}
+
+async function refreshAllData() {
+    await loadNodesConfig();
+    await refreshActiveNodeData();
+    // Kick off non-blocking live probe across all connected Pis
+    refreshNodesOverview(false);
 }

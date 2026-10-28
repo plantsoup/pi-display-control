@@ -2,13 +2,15 @@
  * Time-based Scheduler Management
  */
 
-import { appState, showToast, escapeHtml } from './state.js';
+import { appState, showToast, escapeHtml, apiFetch, isRemoteActive, formatHostShort } from './state.js';
 import { getIcon } from './icons.js';
 
 export async function loadSchedules() {
     try {
-        const res = await fetch('/api/schedules');
+        const res = await apiFetch('/api/schedules');
         const schedules = await res.json();
+        if (!Array.isArray(schedules)) return;
+
         appState.schedules = schedules;
         const countBadge = document.getElementById('scheduleCountBadge');
         if (countBadge) countBadge.textContent = schedules.length;
@@ -16,6 +18,13 @@ export async function loadSchedules() {
     } catch (err) {
         showToast('Error loading schedules: ' + err.message, 'error');
     }
+}
+
+function _getScheduleNodeLabel(targetNode) {
+    if (!targetNode || targetNode === 'local') return 'This Pi';
+    if (targetNode === 'all') return 'All Connected Pis';
+    const found = (appState.allNodes || []).find(n => n.id === targetNode);
+    return found ? `${found.name} (${formatHostShort(found.url)})` : targetNode;
 }
 
 export function renderSchedulesList() {
@@ -45,20 +54,23 @@ export function renderSchedulesList() {
             actionDesc = `Wake screen (Turn on)`;
         }
 
+        const targetNode = sch.params?.target_node || 'local';
+        const nodeLabel = _getScheduleNodeLabel(targetNode);
+
         row.innerHTML = `
             <div class="schedule-time-box">
                 <div class="schedule-time">${escapeHtml(sch.time)}</div>
                 <div class="schedule-info">
                     <h4>${escapeHtml(sch.name)}</h4>
-                    <p>${actionDesc} &bull; Target: ${sch.params?.monitor || 'both'}</p>
+                    <p>${escapeHtml(actionDesc)} &bull; Pi: <strong>${escapeHtml(nodeLabel)}</strong> &bull; Monitor: ${escapeHtml(sch.params?.monitor || 'both')}</p>
                 </div>
             </div>
             <div class="schedule-controls">
                 <label class="switch" title="Toggle active/inactive">
-                    <input type="checkbox" ${sch.enabled ? 'checked' : ''} onchange="toggleSchedule('${sch.id}')">
+                    <input type="checkbox" ${sch.enabled ? 'checked' : ''} onchange="toggleSchedule('${escapeHtml(sch.id)}')">
                     <span class="slider"></span>
                 </label>
-                <button class="btn btn-xs btn-danger" onclick="deleteSchedule('${sch.id}')" title="Delete schedule">
+                <button class="btn btn-xs btn-danger" onclick="deleteSchedule('${escapeHtml(sch.id)}')" title="Delete schedule">
                     ${getIcon('trash')}
                 </button>
             </div>
@@ -67,7 +79,31 @@ export function renderSchedulesList() {
     });
 }
 
+export function populateScheduleTargetNodes() {
+    const select = document.getElementById('scheduleTargetNode');
+    const group = document.getElementById('scheduleTargetNodeGroup');
+    if (!select) return;
+
+    if (isRemoteActive()) {
+        if (group) group.style.display = 'none';
+        select.innerHTML = '<option value="local" selected>This Pi Only</option>';
+        return;
+    }
+
+    if (group) group.style.display = 'flex';
+    const localLabel = `${appState.localNode.name} Only (${formatHostShort(appState.localNode.url)})`;
+    let html = `<option value="local">${escapeHtml(localLabel)}</option>`;
+    if ((appState.remoteNodes || []).length > 0) {
+        html += `<option value="all">All Connected Pis</option>`;
+        appState.remoteNodes.forEach(n => {
+            html += `<option value="${escapeHtml(n.id)}">${escapeHtml(n.name)} (${escapeHtml(formatHostShort(n.url))})</option>`;
+        });
+    }
+    select.innerHTML = html;
+}
+
 export function openAddScheduleModal() {
+    populateScheduleTargetNodes();
     const modal = document.getElementById('scheduleModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -107,8 +143,13 @@ export async function handleCreateSchedule(e) {
     const timeVal = document.getElementById('scheduleTime').value.trim();
     const action = document.getElementById('scheduleAction').value;
     const monitor = document.getElementById('scheduleMonitor').value;
+    const targetNodeEl = document.getElementById('scheduleTargetNode');
+    const targetNode = (!isRemoteActive() && targetNodeEl) ? targetNodeEl.value : 'local';
 
-    const params = { monitor: monitor };
+    const params = {
+        monitor: monitor,
+        target_node: targetNode
+    };
 
     if (action === 'slideshow') {
         params.mode = document.getElementById('scheduleSlideshowMode').value;
@@ -118,7 +159,7 @@ export async function handleCreateSchedule(e) {
     }
 
     try {
-        const res = await fetch('/api/schedules', {
+        const res = await apiFetch('/api/schedules', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -147,7 +188,7 @@ export async function handleCreateSchedule(e) {
 
 export async function toggleSchedule(scheduleId) {
     try {
-        const res = await fetch(`/api/schedules/${scheduleId}/toggle`, { method: 'PUT' });
+        const res = await apiFetch(`/api/schedules/${scheduleId}/toggle`, { method: 'PUT' });
         const data = await res.json();
         if (data.success) {
             appState.schedules = data.schedules;
@@ -161,7 +202,7 @@ export async function toggleSchedule(scheduleId) {
 export async function deleteSchedule(scheduleId) {
     if (!confirm('Are you sure you want to delete this schedule?')) return;
     try {
-        const res = await fetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
+        const res = await apiFetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             showToast('Schedule deleted', 'success');

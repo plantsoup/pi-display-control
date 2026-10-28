@@ -6,6 +6,8 @@ Handles JSON file operations, uploads directory configuration, and thread-safe C
 import os
 import sys
 import json
+import copy
+import socket
 import threading
 from pathlib import Path
 
@@ -35,7 +37,11 @@ IMAGES_CONFIG_FILE = os.getenv('IMAGES_CONFIG_FILE', os.path.join(DATA_DIR, "ima
 SLIDESHOW_CONFIG_FILE = os.getenv('SLIDESHOW_CONFIG_FILE', os.path.join(DATA_DIR, "slideshow.json"))
 SCHEDULES_CONFIG_FILE = os.getenv('SCHEDULES_CONFIG_FILE', os.path.join(DATA_DIR, "schedules.json"))
 DISPLAY_CONFIG_FILE = os.getenv('DISPLAY_CONFIG_FILE', os.path.join(DATA_DIR, "display_settings.json"))
+NODES_CONFIG_FILE = os.getenv('NODES_CONFIG_FILE', os.path.join(DATA_DIR, "nodes.json"))
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(DATA_DIR, "uploads", "images"))
+
+DEFAULT_MAIN_PI_URL = os.getenv('MAIN_PI_URL', 'https://pi.spear.ac')
+DEFAULT_SECONDARY_PI_URL = os.getenv('SECONDARY_PI_URL', 'https://pi2.spear.ac')
 
 # Ensure uploads folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -114,6 +120,95 @@ def load_schedules():
 
 def save_schedules(schedules):
     _write_json(SCHEDULES_CONFIG_FILE, schedules)
+
+def get_default_nodes_config():
+    """
+    Build default connected Pi nodes configuration.
+    Defaults to Main Pi (pi.spear.ac) as local and Secondary Pi (pi2.spear.ac) as connected peer,
+    automatically inverting if running on a host named pi2 / PI_NODE_ROLE=secondary.
+    """
+    role_env = os.getenv('PI_NODE_ROLE', '').strip().lower()
+    try:
+        hostname = socket.gethostname().lower()
+    except Exception:
+        hostname = ''
+
+    is_secondary_host = (
+        role_env == 'secondary'
+        or hostname == 'pi2'
+        or hostname.startswith('pi2.')
+        or hostname.startswith('pi2-')
+    )
+
+    if is_secondary_host:
+        return {
+            "local": {
+                "id": "local",
+                "name": "Secondary Pi",
+                "url": DEFAULT_SECONDARY_PI_URL,
+                "role": "secondary"
+            },
+            "nodes": [
+                {
+                    "id": "main-pi",
+                    "name": "Main Pi",
+                    "url": DEFAULT_MAIN_PI_URL,
+                    "role": "main",
+                    "enabled": True,
+                    "verify_ssl": True,
+                    "api_key": ""
+                }
+            ]
+        }
+
+    return {
+        "local": {
+            "id": "local",
+            "name": "Main Pi",
+            "url": DEFAULT_MAIN_PI_URL,
+            "role": "main"
+        },
+        "nodes": [
+            {
+                "id": "secondary-pi2",
+                "name": "Secondary Pi",
+                "url": DEFAULT_SECONDARY_PI_URL,
+                "role": "secondary",
+                "enabled": True,
+                "verify_ssl": True,
+                "api_key": ""
+            }
+        ]
+    }
+
+def load_nodes_config():
+    default_cfg = get_default_nodes_config()
+    data = _read_json(NODES_CONFIG_FILE, None)
+    if not isinstance(data, dict):
+        return copy.deepcopy(default_cfg)
+
+    local_cfg = data.get("local")
+    if not isinstance(local_cfg, dict):
+        local_cfg = copy.deepcopy(default_cfg["local"])
+    else:
+        local_cfg = {
+            "id": "local",
+            "name": local_cfg.get("name") or default_cfg["local"]["name"],
+            "url": local_cfg.get("url") if local_cfg.get("url") is not None else default_cfg["local"]["url"],
+            "role": local_cfg.get("role") or default_cfg["local"]["role"]
+        }
+
+    nodes_list = data.get("nodes")
+    if not isinstance(nodes_list, list):
+        nodes_list = copy.deepcopy(default_cfg["nodes"])
+
+    return {
+        "local": local_cfg,
+        "nodes": copy.deepcopy(nodes_list)
+    }
+
+def save_nodes_config(config):
+    return _write_json(NODES_CONFIG_FILE, config)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
