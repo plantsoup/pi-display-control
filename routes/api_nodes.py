@@ -398,5 +398,22 @@ def proxy_node_api(node_id, subpath):
             "error": f"Could not reach {node.get('name', node_id)} ({node.get('url')}): {err}"
         }), 502
 
+    # Ensure proxied monitor responses only include physically available monitors (backwards-compat with older peers)
+    if request.method == "GET" and clean_sub == "api/display/monitors" and status_code == 200 and resp_bytes:
+        try:
+            import json as _json
+            from services.nodes_service import filter_available_monitors
+            mon_payload = _json.loads(resp_bytes.decode("utf-8"))
+            if isinstance(mon_payload, dict) and mon_payload.get("success"):
+                filtered = filter_available_monitors(
+                    mon_payload.get("monitors", []),
+                    reported_count=mon_payload.get("count")
+                )
+                mon_payload["monitors"] = filtered
+                mon_payload["count"] = len(filtered)
+                resp_bytes = _json.dumps(mon_payload).encode("utf-8")
+        except Exception:
+            pass
+
     return Response(resp_bytes, status=status_code, content_type=resp_ct)
 

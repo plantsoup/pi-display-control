@@ -2,7 +2,15 @@
  * Websites & Autodarts Management
  */
 
-import { appState, showToast, escapeHtml, apiFetch, isRemoteActive, getActiveNode } from './state.js';
+import {
+    appState,
+    showToast,
+    escapeHtml,
+    apiFetch,
+    isRemoteActive,
+    getActiveNode,
+    getAvailableMonitors
+} from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
 import { getIcon } from './icons.js';
@@ -50,10 +58,41 @@ export function renderWebsitesGrid() {
     }
 
     const hasRemotes = (appState.remoteNodes || []).length > 0;
+    const availCount = getAvailableMonitors().length;
+    const loaded = appState.monitorsLoaded;
 
     appState.websites.forEach((site, idx) => {
         const isDefault = !site.url || site.is_default;
         const favicon = getFaviconUrl(site.url);
+
+        let localMonitorBtns = '';
+        let actionBtnCount = 0;
+        if (!loaded || availCount >= 2) {
+            localMonitorBtns = `
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, 'both')">
+                    ${getIcon('rocket')} Both Displays
+                </button>
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '1')">
+                    ${getIcon('monitor')} Monitor 1
+                </button>
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '2')">
+                    ${getIcon('monitor')} Monitor 2
+                </button>
+            `;
+            actionBtnCount += 3;
+        } else if (availCount === 1) {
+            localMonitorBtns = `
+                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '1')">
+                    ${getIcon('monitor')} Monitor 1
+                </button>
+            `;
+            actionBtnCount += 1;
+        }
+
+        if (hasRemotes) {
+            actionBtnCount += 1;
+        }
+        const spanDeleteFullRow = actionBtnCount > 0 && (actionBtnCount % 2 === 0);
 
         const card = document.createElement('div');
         card.className = 'website-card';
@@ -71,20 +110,12 @@ export function renderWebsitesGrid() {
                 </div>
             </div>
             <div class="website-actions">
-                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, 'both')">
-                    ${getIcon('rocket')} Both Displays
-                </button>
-                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '1')">
-                    ${getIcon('monitor')} Monitor 1
-                </button>
-                <button class="btn btn-sm btn-subtle-secondary" onclick="launchWebsite(${idx}, '2')">
-                    ${getIcon('monitor')} Monitor 2
-                </button>
+                ${localMonitorBtns}
                 ${hasRemotes ? `
                 <button class="btn btn-sm btn-subtle-secondary" onclick="broadcastWebsite(${idx})" title="Launch across Main + Secondary connected Pis">
                     ${getIcon('broadcast')} All Pis
                 </button>` : ''}
-                <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})" ${hasRemotes ? 'style="grid-column: 1 / -1;"' : ''}>
+                <button class="btn btn-sm btn-danger" onclick="deleteWebsite(${idx})" ${spanDeleteFullRow ? 'style="grid-column: 1 / -1;"' : ''}>
                     ${getIcon('trash')} Delete
                 </button>
             </div>
@@ -129,6 +160,10 @@ export async function launchWebsite(index, monitor = 'both') {
     const site = appState.websites[index];
     if (!site) return;
     const activeNode = getActiveNode();
+    if (appState.monitorsLoaded && getAvailableMonitors().length === 0) {
+        showToast(`No monitors attached to ${activeNode.name}`, 'error');
+        return;
+    }
 
     try {
         showToast(`${activeNode.name}: Launching ${site.name} on ${monitor} monitor(s)...`, 'info');

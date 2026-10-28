@@ -382,7 +382,7 @@ class PiDisplayControlTestCase(unittest.TestCase):
             self.assertTrue(probe_data['success'])
             self.assertTrue(probe_data['probe']['online'])
             self.assertEqual(probe_data['probe']['resolved_url'], peer_url)
-            self.assertGreaterEqual(probe_data['probe']['monitor_count'], 1)
+            self.assertEqual(probe_data['probe']['monitor_count'], len(probe_data['probe']['monitors']))
 
             # 4. Connect the live secondary Pi via POST /api/nodes
             res_add = self.client.post('/api/nodes', json={
@@ -466,6 +466,109 @@ class PiDisplayControlTestCase(unittest.TestCase):
                     f.write(backup_bytes)
             elif os.path.exists(NODES_CONFIG_FILE):
                 os.remove(NODES_CONFIG_FILE)
+
+    def test_available_monitors_only_detection_and_filtering(self):
+        """Verify 0, 1, and 2 monitor topologies, headless virtual output filtering, and legacy peer filtering"""
+        from unittest.mock import patch, MagicMock
+        import display.monitors as mon_mod
+        from services.nodes_service import filter_available_monitors
+
+        # 1. Headless xrandr output with NOOP-1 virtual output + disconnected HDMI ports -> 0 monitors
+        headless_xrandr = (
+            "Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 8192 x 8192\n"
+            "NOOP-1 connected primary 1920x1080+0+0 (normal left inverted right) 0mm x 0mm\n"
+            "   1920x1080     60.00*+\n"
+            "HDMI-1 disconnected (normal left inverted right)\n"
+            "HDMI-2 disconnected (normal left inverted right)\n"
+        )
+        mock_proc_headless = MagicMock(returncode=0, stdout=headless_xrandr)
+        with patch("display.monitors.subprocess.run", return_value=mock_proc_headless):
+            self.assertEqual(mon_mod.get_connected_monitors(), [])
+
+        # 2. Blanked physical HDMI-1 (connected without active geometry) + disconnected HDMI-2 -> 1 monitor
+        blanked_single_xrandr = (
+            "Screen 0: minimum 320 x 200, current 320 x 200, maximum 8192 x 8192\n"
+            "HDMI-1 connected (normal left inverted right x axis y axis) 527mm x 296mm\n"
+            "   1920x1080     60.00 +\n"
+            "HDMI-2 disconnected (normal left inverted right x axis y axis)\n"
+        )
+        mock_proc_single = MagicMock(returncode=0, stdout=blanked_single_xrandr)
+        with patch("display.monitors.subprocess.run", return_value=mock_proc_single):
+            detected = mon_mod.get_connected_monitors()
+            self.assertEqual(len(detected), 1)
+            self.assertEqual(detected[0]["name"], "HDMI-1")
+            self.assertTrue(detected[0]["connected"])
+
+        # 3. API endpoints with 0, 1, and 2 connected monitors
+        with patch("routes.api_display.get_connected_monitors", return_value=[]), \
+             patch("services.nodes_service.get_connected_monitors", return_value=[]):
+            res0 = self.client.get("/api/display/monitors")
+            data0 = json.loads(res0.data)
+            self.assertTrue(data0["success"])
+            self.assertEqual(data0["count"], 0)
+            self.assertEqual(data0["monitors"], [])
+
+            res_loc0 = self.client.get("/api/nodes/local/status")
+            loc0 = json.loads(res_loc0.data)["node"]
+            self.assertEqual(loc0["monitor_count"], 0)
+            self.assertEqual(loc0["monitors"], [])
+
+        one_mon = [{
+            "name": "HDMI-A-1",
+            "primary": True,
+            "orig_width": 1920,
+            "orig_height": 1080,
+            "width": 1080,
+            "height": 1920,
+            "pos_x": 0,
+            "pos_y": 0,
+            "rotation": "left",
+            "modes": ["1920x1080"],
+            "connected": True
+        }]
+        with patch("routes.api_display.get_connected_monitors", return_value=one_mon):
+            res1 = self.client.get("/api/display/monitors")
+            data1 = json.loads(res1.data)
+            self.assertEqual(data1["count"], 1)
+            self.assertEqual(len(data1["monitors"]), 1)
+            self.assertEqual(data1["monitors"][0]["name"], "HDMI-A-1")
+            self.assertEqual(data1["monitors"][0]["index"], 1)
+            self.assertTrue(data1["monitors"][0]["connected"])
+
+        two_mons = one_mon + [{
+            "name": "HDMI-A-2",
+            "primary": False,
+            "orig_width": 1920,
+            "orig_height": 1080,
+            "width": 1080,
+            "height": 1920,
+            "pos_x": 1080,
+            "pos_y": 0,
+            "rotation": "right",
+            "modes": ["1920x1080"],
+            "connected": True
+        }]
+        with patch("routes.api_display.get_connected_monitors", return_value=two_mons):
+            res2 = self.client.get("/api/display/monitors")
+            data2 = json.loads(res2.data)
+            self.assertEqual(data2["count"], 2)
+            self.assertEqual([m["index"] for m in data2["monitors"]], [1, 2])
+
+        # 4. Backwards compatibility: filter out legacy synthetic connected=False slots from un-updated peers
+        legacy_payload = [
+            {"index": 1, "name": "HDMI-1 (Primary)", "connected": False},
+            {"index": 2, "name": "HDMI-2 (Secondary)", "connected": False}
+        ]
+        self.assertEqual(filter_available_monitors(legacy_payload, reported_count=0), [])
+        self.assertEqual(filter_available_monitors(legacy_payload, reported_count=2), [])
+
+        mixed_legacy = [
+            {"index": 1, "name": "HDMI-1", "connected": True},
+            {"index": 2, "name": "HDMI-2 (Secondary)", "connected": False}
+        ]
+        filtered_mixed = filter_available_monitors(mixed_legacy)
+        self.assertEqual(len(filtered_mixed), 1)
+        self.assertEqual(filtered_mixed[0]["name"], "HDMI-1")
 
 if __name__ == '__main__':
     unittest.main()

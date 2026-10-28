@@ -284,8 +284,28 @@ def remote_request(
         return False, 502, b"", "application/json", f"Request error: {str(e)}", latency_ms
 
 
+def filter_available_monitors(raw_monitors, reported_count=None):
+    """
+    Filter monitor list to physically attached/available monitors only.
+    Strips synthetic disconnected placeholders from older Pi Display Control instances.
+    """
+    if reported_count == 0:
+        return []
+    if not isinstance(raw_monitors, list):
+        return []
+    available = []
+    for m in raw_monitors:
+        if not isinstance(m, dict) or m.get("connected", True) is False:
+            continue
+        item = dict(m)
+        item["connected"] = True
+        item.setdefault("index", len(available) + 1)
+        available.append(item)
+    return available
+
+
 def get_local_monitors_list():
-    """Build local monitor list and defaults matching /api/display/monitors."""
+    """Build local connected monitor list and defaults matching /api/display/monitors."""
     connected = get_connected_monitors()
     defaults = {
         "1": get_monitor_rotation("1", "left"),
@@ -296,34 +316,12 @@ def get_local_monitors_list():
         mon_idx_str = str(idx)
         m_copy = dict(m)
         m_copy["index"] = idx
+        m_copy["connected"] = True
         m_copy["current_rotation"] = m.get("rotation", "normal")
         m_copy["default_rotation"] = defaults.get(mon_idx_str, "normal")
         monitors_data.append(m_copy)
 
-    if not monitors_data:
-        monitors_data = [
-            {
-                "index": 1,
-                "name": "HDMI-1 (Primary)",
-                "primary": True,
-                "current_rotation": defaults.get("1", "left"),
-                "default_rotation": defaults.get("1", "left"),
-                "width": 1080 if defaults.get("1", "left") in ["left", "right"] else 1920,
-                "height": 1920 if defaults.get("1", "left") in ["left", "right"] else 1080,
-                "connected": False
-            },
-            {
-                "index": 2,
-                "name": "HDMI-2 (Secondary)",
-                "primary": False,
-                "current_rotation": defaults.get("2", "right"),
-                "default_rotation": defaults.get("2", "right"),
-                "width": 1080 if defaults.get("2", "right") in ["left", "right"] else 1920,
-                "height": 1920 if defaults.get("2", "right") in ["left", "right"] else 1080,
-                "connected": False
-            }
-        ]
-    return monitors_data, len(connected), defaults
+    return monitors_data, len(monitors_data), defaults
 
 
 def get_local_node_overview():
@@ -413,8 +411,11 @@ def _probe_single_url(url, verify_ssl=True, api_key="", timeout=3.5):
         try:
             m_json = json.loads(m_body.decode("utf-8"))
             if isinstance(m_json, dict) and m_json.get("success"):
-                monitors = m_json.get("monitors", [])
-                physical_count = m_json.get("count", len(monitors))
+                monitors = filter_available_monitors(
+                    m_json.get("monitors", []),
+                    reported_count=m_json.get("count")
+                )
+                physical_count = len(monitors)
                 defaults = m_json.get("defaults", defaults)
         except Exception:
             pass

@@ -10,6 +10,7 @@ import {
     apiUrl,
     isRemoteActive,
     getActiveNode,
+    getAvailableMonitors,
     formatHostShort
 } from './state.js';
 import { fetchLiveStatus } from './display.js';
@@ -235,24 +236,38 @@ export function getMonitorTargetObject(monId) {
 }
 
 export async function applyDualMixer() {
-    const target1 = getMonitorTargetObject('1');
-    const target2 = getMonitorTargetObject('2');
     const activeNode = getActiveNode();
+    const avail = getAvailableMonitors();
+
+    if (appState.monitorsLoaded && avail.length === 0) {
+        showToast(`No monitors attached to ${activeNode.name}`, 'error');
+        return;
+    }
+
+    const isSingle = appState.monitorsLoaded && avail.length === 1;
+    const target1 = getMonitorTargetObject('1');
+    const payload = isSingle
+        ? { monitor: '1', monitor1: target1 }
+        : { monitor: 'both', monitor1: target1, monitor2: getMonitorTargetObject('2') };
 
     try {
-        showToast(`Applying mixed setup to ${activeNode.name}...`, 'info');
+        showToast(
+            isSingle
+                ? `Applying display setup to ${activeNode.name}...`
+                : `Applying mixed setup to ${activeNode.name}...`,
+            'info'
+        );
         const res = await apiFetch('/api/display', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                monitor: 'both',
-                monitor1: target1,
-                monitor2: target2
-            })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
-            showToast(`${activeNode.name}: ${data.message || 'Dual monitor setup updated!'}`, 'success');
+            showToast(
+                `${activeNode.name}: ${data.message || (isSingle ? 'Display updated!' : 'Dual monitor setup updated!')}`,
+                'success'
+            );
             fetchLiveStatus();
         } else {
             showToast('Error: ' + data.error, 'error');

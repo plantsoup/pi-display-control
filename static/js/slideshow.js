@@ -2,7 +2,14 @@
  * Slideshow Studio Controller
  */
 
-import { appState, showToast, apiFetch, getActiveNode, isRemoteActive } from './state.js';
+import {
+    appState,
+    showToast,
+    apiFetch,
+    getActiveNode,
+    getAvailableMonitors,
+    isRemoteActive
+} from './state.js';
 import { fetchLiveStatus } from './display.js';
 
 export async function loadSlideshowConfig() {
@@ -43,6 +50,35 @@ export function renderSlideshowControls() {
     // Transition
     const transSelect = document.getElementById('slideshowTransition');
     if (transSelect) transSelect.value = cfg.transition || 'fade';
+
+    // Show launch buttons only for physically available monitors
+    const avail = getAvailableMonitors();
+    const count = avail.length;
+    const loaded = appState.monitorsLoaded;
+    const bothBtn = document.getElementById('launchSlideshowBothBtn');
+    const mon1Btn = document.getElementById('launchSlideshowMon1Btn');
+    const mon2Btn = document.getElementById('launchSlideshowMon2Btn');
+    const noMonTag = document.getElementById('slideshowNoLocalMonTag');
+
+    if (bothBtn) {
+        bothBtn.style.display = (!loaded || count >= 2) ? 'inline-flex' : 'none';
+    }
+    if (mon1Btn) {
+        mon1Btn.style.display = (!loaded || count >= 1) ? 'inline-flex' : 'none';
+        mon1Btn.className = (loaded && count === 1) ? 'btn btn-hero-primary' : 'btn btn-subtle-secondary';
+    }
+    if (mon2Btn) {
+        mon2Btn.style.display = (!loaded || count >= 2) ? 'inline-flex' : 'none';
+    }
+    if (noMonTag) {
+        if (loaded && count === 0) {
+            const activeNode = getActiveNode();
+            noMonTag.textContent = `No monitor attached to ${activeNode.name}`;
+            noMonTag.style.display = 'inline-flex';
+        } else {
+            noMonTag.style.display = 'none';
+        }
+    }
 
     updateSlideshowSummaryText();
 }
@@ -86,6 +122,10 @@ export async function saveSlideshowConfigChanges() {
 
 export async function launchSlideshow(monitor = 'both') {
     const activeNode = getActiveNode();
+    if (appState.monitorsLoaded && getAvailableMonitors().length === 0) {
+        showToast(`No monitors attached to ${activeNode.name}`, 'error');
+        return;
+    }
     if (appState.images.length === 0) {
         showToast(`Please upload at least one image on ${activeNode.name} (or stream from Main Pi in Mixer / Connected Pis)`, 'error');
         return;

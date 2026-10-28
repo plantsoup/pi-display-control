@@ -22,6 +22,7 @@ export const appState = {
     images: [],
     schedules: [],
     monitors: [],
+    monitorsLoaded: false,
     monitorDefaults: { "1": "left", "2": "right" },
     availableRotations: [],
     slideshowConfig: {
@@ -46,6 +47,14 @@ export function getActiveNode() {
         appState.nodesOverview.find(n => n.id === appState.activeNodeId) ||
         appState.localNode
     );
+}
+
+/**
+ * Return only physically connected / available monitors (filtering out any legacy connected:false placeholders).
+ */
+export function getAvailableMonitors(list = appState.monitors) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(m => m && m.connected !== false);
 }
 
 /**

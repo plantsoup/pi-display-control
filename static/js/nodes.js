@@ -9,6 +9,7 @@ import {
     escapeHtml,
     isRemoteActive,
     getActiveNode,
+    getAvailableMonitors,
     formatHostShort
 } from './state.js';
 import { getIcon } from './icons.js';
@@ -59,6 +60,7 @@ export async function refreshNodesOverview(showFeedback = false) {
             _updateNodeCountBadge();
             renderNodeSwitcherBar();
             populateBroadcastOptions();
+            populateScheduleTargetNodes();
             renderNodesGrid();
             if (showFeedback) {
                 const online = data.summary?.online_nodes ?? appState.nodesOverview.filter(n => n.online).length;
@@ -87,20 +89,42 @@ function _updateNodeCountBadge() {
 
 function _getMergedNodesList() {
     if (appState.nodesOverview && appState.nodesOverview.length > 0) {
-        return appState.nodesOverview;
+        return appState.nodesOverview.map(n => {
+            const avail = getAvailableMonitors(n.monitors);
+            return {
+                ...n,
+                monitors: avail,
+                monitor_count: avail.length,
+                monitors_known: Boolean(n.online)
+            };
+        });
     }
-    return (appState.allNodes || [appState.localNode]).map(n => ({
-        ...n,
-        online: Boolean(n.is_local),
-        monitors: [],
-        monitor_count: 2
-    }));
+    return (appState.allNodes || [appState.localNode]).map(n => {
+        const localKnown = Boolean(n.is_local) && !isRemoteActive() && appState.monitorsLoaded;
+        const localMons = localKnown ? getAvailableMonitors(appState.monitors) : [];
+        return {
+            ...n,
+            online: Boolean(n.is_local),
+            monitors: localMons,
+            monitor_count: localKnown ? localMons.length : null,
+            monitors_known: localKnown
+        };
+    });
 }
 
 export async function switchActiveNode(nodeId, jumpToMixer = false) {
     const prevId = appState.activeNodeId;
     appState.activeNodeId = nodeId || 'local';
     const target = getActiveNode();
+
+    const overviewEntry = (appState.nodesOverview || []).find(n => n.id === appState.activeNodeId);
+    if (overviewEntry && overviewEntry.online) {
+        appState.monitors = getAvailableMonitors(overviewEntry.monitors);
+        appState.monitorsLoaded = true;
+    } else if (prevId !== appState.activeNodeId) {
+        appState.monitors = [];
+        appState.monitorsLoaded = false;
+    }
 
     renderNodeSwitcherBar();
     renderNodesGrid();
@@ -139,16 +163,23 @@ export function renderNodeSwitcherBar() {
         pillsContainer.innerHTML = nodes.map(node => {
             const isActive = node.id === appState.activeNodeId;
             const hostShort = formatHostShort(node.url);
-            const isBlank = node.online && node.state?.status === 'blank';
+            const availMons = getAvailableMonitors(node.monitors);
+            const hasMonitors = availMons.length > 0;
+            const isBlank = node.online && hasMonitors && node.state?.status === 'blank';
             const dotClass = !node.online ? 'offline' : (isBlank ? 'blank' : 'online');
-            const monCount = node.monitor_count || (node.monitors ? node.monitors.length : 0);
-            const monTag = node.online && monCount > 0 ? `<span class="node-pill-monitors">${monCount} disp</span>` : '';
+
+            let monTag = '';
+            if (node.online && (node.monitors_known || node.monitor_count !== null)) {
+                monTag = hasMonitors
+                    ? `<span class="node-pill-monitors">${availMons.length} disp</span>`
+                    : `<span class="node-pill-monitors no-disp">No display</span>`;
+            }
 
             return `
                 <button type="button"
                         class="node-switch-pill ${isActive ? 'active' : ''}"
                         onclick="switchActiveNode('${escapeHtml(node.id)}')"
-                        title="${escapeHtml(node.name)} (${escapeHtml(node.url || 'local')}) - ${node.online ? 'Online' : (node.error || 'Unreachable')}">
+                        title="${escapeHtml(node.name)} (${escapeHtml(node.url || 'local')}) - ${node.online ? (hasMonitors ? `${availMons.length} display(s)` : 'Online, no display attached') : (node.error || 'Unreachable')}">
                     <span class="node-dot ${dotClass}"></span>
                     <span class="node-pill-name">${escapeHtml(node.name)}</span>
                     <span class="node-pill-host">${escapeHtml(hostShort)}</span>
@@ -368,22 +399,30 @@ export function renderNodesGrid() {
         const isLocal = Boolean(node.is_local);
         const hostShort = formatHostShort(node.url);
         const state = node.state || {};
-        const isBlank = node.online && state.status === 'blank';
+        const monitors = getAvailableMonitors(node.monitors);
+        const hasMonitors = monitors.length > 0;
+        const isBlank = node.online && hasMonitors && state.status === 'blank';
 
         let statusLabel = 'Offline / Unreachable';
         let statusClass = 'offline';
         if (node.online) {
-            if (isBlank) {
+            if (!hasMonitors && node.monitors_known) {
+                statusLabel = 'Online (No Display)';
+                statusClass = 'online';
+            } else if (isBlank) {
                 statusLabel = 'Screens Off (Blanked)';
                 statusClass = 'blank';
             } else if (state.mode === 'slideshow') {
-                statusLabel = `Slideshow (${state.monitor || 'both'})`;
+                const monLbl = monitors.length === 1 ? 'Monitor 1' : (state.monitor || 'both');
+                statusLabel = `Slideshow (${monLbl})`;
                 statusClass = 'online';
             } else if (state.mode === 'mixed') {
-                statusLabel = `Mixed Display (${state.monitor || 'both'})`;
+                const monLbl = monitors.length === 1 ? 'Monitor 1' : (state.monitor || 'both');
+                statusLabel = `Mixed Display (${monLbl})`;
                 statusClass = 'online';
             } else if (state.mode === 'website') {
-                statusLabel = `Website Active (${state.monitor || 'both'})`;
+                const monLbl = monitors.length === 1 ? 'Monitor 1' : (state.monitor || 'both');
+                statusLabel = `Website Active (${monLbl})`;
                 statusClass = 'online';
             } else {
                 statusLabel = 'Online & Ready';
@@ -399,45 +438,85 @@ export function renderNodesGrid() {
                 ? `<span class="node-latency-badge">${node.latency_ms}ms</span>`
                 : '');
 
-        const monitors = (node.monitors && node.monitors.length > 0) ? node.monitors : [
-            { index: 1, name: 'HDMI-1', current_rotation: node.defaults?.['1'] || 'normal', width: 1920, height: 1080 },
-            { index: 2, name: 'HDMI-2', current_rotation: node.defaults?.['2'] || 'normal', width: 1920, height: 1080 }
-        ];
-
-        const monitorsHtml = monitors.map(m => {
-            const idx = m.index || 1;
-            const curRot = m.current_rotation || 'normal';
-            const resText = (m.width && m.height) ? `${m.width}×${m.height}` : '';
-            const rotSelectHtml = rotChoices.map(rc =>
-                `<option value="${rc.value}" ${rc.value === curRot ? 'selected' : ''}>${rc.label}</option>`
-            ).join('');
-
-            return `
-                <div class="node-monitor-row">
-                    <div class="node-monitor-meta">
-                        <span class="monitor-badge mon${idx}-accent">Monitor ${idx}</span>
-                        <span class="node-mon-connector">${escapeHtml(m.name || `HDMI-${idx}`)}</span>
-                        ${resText ? `<span class="node-mon-res">${escapeHtml(resText)}</span>` : ''}
-                    </div>
-                    <div class="node-monitor-controls">
-                        <select id="nodeRot_${escapeHtml(node.id)}_${idx}" class="form-select node-inline-select" ${!node.online ? 'disabled' : ''}>
-                            ${rotSelectHtml}
-                        </select>
-                        <button type="button" class="btn btn-xs btn-subtle-secondary"
-                                onclick="handleNodeQuickRotate('${escapeHtml(node.id)}', '${idx}')"
-                                ${!node.online ? 'disabled' : ''}
-                                title="Rotate Monitor ${idx} on ${escapeHtml(node.name)}">
-                            ${getIcon('rotate')} Rotate
-                        </button>
-                    </div>
+        let monitorsHtml = '';
+        if (!node.online) {
+            monitorsHtml = `
+                <div class="node-no-monitors-box is-offline">
+                    ${getIcon('monitor')}
+                    <span>Pi is offline &mdash; connect to detect attached displays</span>
                 </div>
             `;
-        }).join('');
+        } else if (!hasMonitors) {
+            monitorsHtml = `
+                <div class="node-no-monitors-box">
+                    ${getIcon('monitor')}
+                    <span>No monitors currently attached to ${escapeHtml(node.name)}</span>
+                </div>
+            `;
+        } else {
+            monitorsHtml = monitors.map((m, arrayIdx) => {
+                const idx = m.index || (arrayIdx + 1);
+                const curRot = m.current_rotation || 'normal';
+                const resText = (m.width && m.height) ? `${m.width}×${m.height}` : '';
+                const rotSelectHtml = rotChoices.map(rc =>
+                    `<option value="${rc.value}" ${rc.value === curRot ? 'selected' : ''}>${rc.label}</option>`
+                ).join('');
+
+                return `
+                    <div class="node-monitor-row">
+                        <div class="node-monitor-meta">
+                            <span class="monitor-badge mon${idx <= 2 ? idx : 1}-accent">Monitor ${idx}</span>
+                            <span class="node-mon-connector">${escapeHtml(m.name || `HDMI-${idx}`)}</span>
+                            ${resText ? `<span class="node-mon-res">${escapeHtml(resText)}</span>` : ''}
+                        </div>
+                        <div class="node-monitor-controls">
+                            <select id="nodeRot_${escapeHtml(node.id)}_${idx}" class="form-select node-inline-select" ${!node.online ? 'disabled' : ''}>
+                                ${rotSelectHtml}
+                            </select>
+                            <button type="button" class="btn btn-xs btn-subtle-secondary"
+                                    onclick="handleNodeQuickRotate('${escapeHtml(node.id)}', '${idx}')"
+                                    ${!node.online ? 'disabled' : ''}
+                                    title="Rotate Monitor ${idx} on ${escapeHtml(node.name)}">
+                                ${getIcon('rotate')} Rotate
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const pushMonitorOptionsHtml = monitors.length >= 2
+            ? `<option value="both">Both Displays</option>` + monitors.map((m, arrayIdx) => {
+                const idx = m.index || (arrayIdx + 1);
+                return `<option value="${idx}">Monitor ${idx} (${escapeHtml(m.name || `HDMI-${idx}`)})</option>`;
+            }).join('')
+            : (monitors.length === 1
+                ? `<option value="${monitors[0].index || 1}">Monitor ${monitors[0].index || 1} (${escapeHtml(monitors[0].name || 'HDMI-1')})</option>`
+                : '');
+
+        const quickPushHtml = hasMonitors ? `
+            <div class="node-section-label" style="margin-top: 14px;">Quick Display Content Push</div>
+            <div class="node-quick-push-bar">
+                <select id="nodePushContent_${escapeHtml(node.id)}" class="form-select node-push-select" ${!node.online ? 'disabled' : ''}>
+                    ${pushOptionsHtml}
+                </select>
+                <select id="nodePushMonitor_${escapeHtml(node.id)}" class="form-select node-mon-target-select" ${!node.online ? 'disabled' : ''}>
+                    ${pushMonitorOptionsHtml}
+                </select>
+                <button type="button" class="btn btn-sm btn-primary"
+                        onclick="handleNodeQuickPush('${escapeHtml(node.id)}')"
+                        ${!node.online ? 'disabled' : ''}>
+                    ${getIcon('rocket')}
+                    <span>Display</span>
+                </button>
+            </div>
+        ` : '';
 
         const counts = node.counts || {};
+        const dispWord = monitors.length === 1 ? 'Display' : 'Displays';
         const statsHtml = node.online ? `
             <div class="node-stats-strip">
-                <span><strong>${monitors.length}</strong> Displays</span>
+                <span><strong>${monitors.length}</strong> ${dispWord}</span>
                 <span>&bull;</span>
                 <span><strong>${counts.websites ?? 0}</strong> Websites</span>
                 <span>&bull;</span>
@@ -450,6 +529,9 @@ export function renderNodesGrid() {
                 ${escapeHtml(node.error || `Cannot reach Pi Display Control at ${node.url}. Ensure app.py is running on ${hostShort}.`)}
             </div>
         `;
+
+        const powerDisabled = !node.online || !hasMonitors;
+        const powerTitle = !node.online ? 'Pi is offline' : (!hasMonitors ? 'No monitors attached to this Pi' : '');
 
         return `
             <div class="card node-device-card ${isActive ? 'is-active-node' : ''} ${!node.online ? 'is-offline-node' : ''}">
@@ -484,23 +566,7 @@ export function renderNodesGrid() {
                         ${monitorsHtml}
                     </div>
 
-                    <div class="node-section-label" style="margin-top: 14px;">Quick Display Content Push</div>
-                    <div class="node-quick-push-bar">
-                        <select id="nodePushContent_${escapeHtml(node.id)}" class="form-select node-push-select" ${!node.online ? 'disabled' : ''}>
-                            ${pushOptionsHtml}
-                        </select>
-                        <select id="nodePushMonitor_${escapeHtml(node.id)}" class="form-select node-mon-target-select" ${!node.online ? 'disabled' : ''}>
-                            <option value="both">Both Displays</option>
-                            <option value="1">Monitor 1</option>
-                            <option value="2">Monitor 2</option>
-                        </select>
-                        <button type="button" class="btn btn-sm btn-primary"
-                                onclick="handleNodeQuickPush('${escapeHtml(node.id)}')"
-                                ${!node.online ? 'disabled' : ''}>
-                            ${getIcon('rocket')}
-                            <span>Display</span>
-                        </button>
-                    </div>
+                    ${quickPushHtml}
 
                     <div class="node-card-actions-bar">
                         <button type="button" class="btn btn-xs ${isActive ? 'btn-primary' : 'btn-subtle-secondary'}"
@@ -510,12 +576,14 @@ export function renderNodesGrid() {
                         </button>
                         <button type="button" class="btn btn-xs btn-neutral"
                                 onclick="handleNodePower('${escapeHtml(node.id)}', 'wake')"
-                                ${!node.online ? 'disabled' : ''}>
+                                ${powerDisabled ? 'disabled' : ''}
+                                ${powerTitle ? `title="${escapeHtml(powerTitle)}"` : ''}>
                             ${getIcon('sun')} Wake
                         </button>
                         <button type="button" class="btn btn-xs btn-muted-danger"
                                 onclick="handleNodePower('${escapeHtml(node.id)}', 'blank')"
-                                ${!node.online ? 'disabled' : ''}>
+                                ${powerDisabled ? 'disabled' : ''}
+                                ${powerTitle ? `title="${escapeHtml(powerTitle)}"` : ''}>
                             ${getIcon('moon')} Blank
                         </button>
                         ${!isLocal ? `

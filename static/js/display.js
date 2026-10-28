@@ -2,7 +2,15 @@
  * Screen Power Controls & Live Status Monitoring
  */
 
-import { showToast, apiFetch, getActiveNode, isRemoteActive, formatHostShort } from './state.js';
+import {
+    appState,
+    showToast,
+    apiFetch,
+    getActiveNode,
+    getAvailableMonitors,
+    isRemoteActive,
+    formatHostShort
+} from './state.js';
 
 export async function fetchLiveStatus() {
     const badgeText = document.getElementById('liveStatusText');
@@ -26,17 +34,28 @@ export async function fetchLiveStatus() {
             const state = data.state || {};
             if (!badgeText || !badge) return;
 
+            const availCount = getAvailableMonitors().length;
+            if (appState.monitorsLoaded && availCount === 0) {
+                badgeText.textContent = `${prefix}Online (No Display Attached)`;
+                if (dot) dot.className = 'status-dot no-display';
+                return;
+            }
+
+            const monLabel = (appState.monitorsLoaded && availCount === 1)
+                ? 'Monitor 1'
+                : (state.monitor || 'both');
+
             if (state.status === 'blank') {
                 badgeText.textContent = `${prefix}Screens Off (Blanked)`;
                 if (dot) dot.className = 'status-dot blank';
             } else if (state.mode === 'slideshow') {
-                badgeText.textContent = `${prefix}Slideshow Active (${state.monitor || 'both'})`;
+                badgeText.textContent = `${prefix}Slideshow Active (${monLabel})`;
                 if (dot) dot.className = 'status-dot slideshow';
             } else if (state.mode === 'website') {
-                badgeText.textContent = `${prefix}Website Active (${state.monitor || 'both'})`;
+                badgeText.textContent = `${prefix}Website Active (${monLabel})`;
                 if (dot) dot.className = 'status-dot active';
             } else if (state.mode === 'mixed') {
-                badgeText.textContent = `${prefix}Mixed Display (${state.monitor || 'both'})`;
+                badgeText.textContent = `${prefix}Mixed Display (${monLabel})`;
                 if (dot) dot.className = 'status-dot active';
             } else {
                 badgeText.textContent = `${prefix}Display Active`;

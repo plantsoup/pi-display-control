@@ -59,39 +59,15 @@ def get_monitors():
         mon_idx_str = str(idx)
         m_copy = dict(m)
         m_copy["index"] = idx
+        m_copy["connected"] = True
         m_copy["current_rotation"] = m.get("rotation", "normal")
         m_copy["default_rotation"] = defaults.get(mon_idx_str, "normal")
         monitors_data.append(m_copy)
 
-    # In case no physical monitors are reported (headless/virtual environment), provide synthetic slots
-    if not monitors_data:
-        monitors_data = [
-            {
-                "index": 1,
-                "name": "HDMI-1 (Primary)",
-                "primary": True,
-                "current_rotation": defaults.get("1", "left"),
-                "default_rotation": defaults.get("1", "left"),
-                "width": 1080 if defaults.get("1", "left") in ["left", "right"] else 1920,
-                "height": 1920 if defaults.get("1", "left") in ["left", "right"] else 1080,
-                "connected": False
-            },
-            {
-                "index": 2,
-                "name": "HDMI-2 (Secondary)",
-                "primary": False,
-                "current_rotation": defaults.get("2", "right"),
-                "default_rotation": defaults.get("2", "right"),
-                "width": 1080 if defaults.get("2", "right") in ["left", "right"] else 1920,
-                "height": 1920 if defaults.get("2", "right") in ["left", "right"] else 1080,
-                "connected": False
-            }
-        ]
-
     return jsonify({
         "success": True,
         "monitors": monitors_data,
-        "count": len(connected),
+        "count": len(monitors_data),
         "defaults": defaults,
         "available_rotations": ROTATION_METADATA
     })

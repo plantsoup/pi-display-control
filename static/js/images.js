@@ -2,7 +2,16 @@
  * Image Library & Uploads
  */
 
-import { appState, showToast, escapeHtml, apiFetch, apiUrl, isRemoteActive, getActiveNode } from './state.js';
+import {
+    appState,
+    showToast,
+    escapeHtml,
+    apiFetch,
+    apiUrl,
+    isRemoteActive,
+    getActiveNode,
+    getAvailableMonitors
+} from './state.js';
 import { fetchLiveStatus } from './display.js';
 import { populateMixerOptions } from './mixer.js';
 import { saveSlideshowConfigChanges, updateSlideshowSummaryText } from './slideshow.js';
@@ -39,6 +48,8 @@ export function renderImagesGrid() {
 
     const selectedIds = new Set(appState.slideshowConfig.selected_images || []);
     const hasRemotes = (appState.remoteNodes || []).length > 0 && !isRemoteActive();
+    const availCount = getAvailableMonitors().length;
+    const loaded = appState.monitorsLoaded;
 
     appState.images.forEach((img, idx) => {
         const isSelected = selectedIds.size === 0 || selectedIds.has(img.id);
@@ -46,6 +57,27 @@ export function renderImagesGrid() {
         card.className = `image-card ${isSelected ? 'selected' : ''}`;
         const thumbUrl = apiUrl(`/api/images/${encodeURIComponent(img.filename)}`);
         const safeFnJs = String(img.filename || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        let localMonitorBtns = '';
+        if (!loaded || availCount >= 2) {
+            localMonitorBtns = `
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', 'both')" title="Show on both monitors">
+                    ${getIcon('rocket')} Both
+                </button>
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '1')" title="Show on Monitor 1 only">
+                    M1
+                </button>
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '2')" title="Show on Monitor 2 only">
+                    M2
+                </button>
+            `;
+        } else if (availCount === 1) {
+            localMonitorBtns = `
+                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '1')" title="Show on attached Monitor 1">
+                    ${getIcon('monitor')} Display
+                </button>
+            `;
+        }
 
         card.innerHTML = `
             <div class="image-thumbnail-box">
@@ -56,15 +88,7 @@ export function renderImagesGrid() {
                 <p>${escapeHtml(img.original_filename || '')}</p>
             </div>
             <div class="image-card-actions">
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', 'both')" title="Show on both monitors">
-                    ${getIcon('rocket')} Both
-                </button>
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '1')" title="Show on Monitor 1 only">
-                    M1
-                </button>
-                <button class="btn btn-xs btn-subtle-secondary" onclick="displaySingleImage('${safeFnJs}', '2')" title="Show on Monitor 2 only">
-                    M2
-                </button>
+                ${localMonitorBtns}
                 ${hasRemotes ? `
                 <button class="btn btn-xs btn-subtle-secondary" onclick="broadcastSingleImage('${safeFnJs}')" title="Stream image across all connected Pis">
                     ${getIcon('broadcast')} All
@@ -130,6 +154,10 @@ export async function handleUploadImage(e) {
 
 export async function displaySingleImage(filename, monitor = 'both') {
     const activeNode = getActiveNode();
+    if (appState.monitorsLoaded && getAvailableMonitors().length === 0) {
+        showToast(`No monitors attached to ${activeNode.name}`, 'error');
+        return;
+    }
     try {
         showToast(`${activeNode.name}: Displaying image on ${monitor} monitor(s)...`, 'info');
         const payload = {

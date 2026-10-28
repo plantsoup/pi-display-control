@@ -2,7 +2,15 @@
  * Time-based Scheduler Management
  */
 
-import { appState, showToast, escapeHtml, apiFetch, isRemoteActive, formatHostShort } from './state.js';
+import {
+    appState,
+    showToast,
+    escapeHtml,
+    apiFetch,
+    isRemoteActive,
+    getAvailableMonitors,
+    formatHostShort
+} from './state.js';
 import { getIcon } from './icons.js';
 
 export async function loadSchedules() {
@@ -84,9 +92,12 @@ export function populateScheduleTargetNodes() {
     const group = document.getElementById('scheduleTargetNodeGroup');
     if (!select) return;
 
+    const prevVal = select.value;
+
     if (isRemoteActive()) {
         if (group) group.style.display = 'none';
         select.innerHTML = '<option value="local" selected>This Pi Only</option>';
+        populateScheduleMonitorOptions();
         return;
     }
 
@@ -100,10 +111,59 @@ export function populateScheduleTargetNodes() {
         });
     }
     select.innerHTML = html;
+    if (prevVal && Array.from(select.options).some(o => o.value === prevVal)) {
+        select.value = prevVal;
+    }
+    select.onchange = () => populateScheduleMonitorOptions();
+    populateScheduleMonitorOptions();
+}
+
+export function populateScheduleMonitorOptions() {
+    const monSelect = document.getElementById('scheduleMonitor');
+    if (!monSelect) return;
+
+    const targetSelect = document.getElementById('scheduleTargetNode');
+    const targetVal = (!isRemoteActive() && targetSelect) ? (targetSelect.value || 'local') : 'local';
+    const prevMon = monSelect.value;
+
+    let targetCount = null;
+    if (targetVal === 'all') {
+        targetCount = 2;
+    } else if (isRemoteActive()) {
+        targetCount = appState.monitorsLoaded ? getAvailableMonitors().length : null;
+    } else if (targetVal === 'local') {
+        const localOv = (appState.nodesOverview || []).find(n => n.id === 'local');
+        if (localOv && localOv.online) {
+            targetCount = getAvailableMonitors(localOv.monitors).length;
+        } else if (appState.monitorsLoaded) {
+            targetCount = getAvailableMonitors().length;
+        }
+    } else {
+        const remoteOv = (appState.nodesOverview || []).find(n => n.id === targetVal);
+        if (remoteOv && remoteOv.online) {
+            targetCount = getAvailableMonitors(remoteOv.monitors).length;
+        }
+    }
+
+    if (targetCount === 1) {
+        monSelect.innerHTML = `<option value="1">Monitor 1</option>`;
+    } else if (targetCount === 0) {
+        monSelect.innerHTML = `<option value="1">First Attached Monitor (None Currently Connected)</option>`;
+    } else {
+        monSelect.innerHTML = `
+            <option value="both">Both Monitors</option>
+            <option value="1">Monitor 1 Only</option>
+            <option value="2">Monitor 2 Only</option>
+        `;
+        if (prevMon && ['both', '1', '2'].includes(prevMon)) {
+            monSelect.value = prevMon;
+        }
+    }
 }
 
 export function openAddScheduleModal() {
     populateScheduleTargetNodes();
+    populateScheduleMonitorOptions();
     const modal = document.getElementById('scheduleModal');
     if (modal) modal.style.display = 'flex';
 }

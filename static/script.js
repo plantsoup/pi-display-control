@@ -48,12 +48,15 @@ import {
     openAddScheduleModal,
     closeScheduleModal,
     onScheduleActionChange,
+    populateScheduleMonitorOptions,
     handleCreateSchedule,
     toggleSchedule,
     deleteSchedule
 } from './js/schedules.js';
 import {
     loadMonitorsData,
+    updateMonitorAvailabilityUI,
+    updateHardwareStatusBar,
     handleApplyMonitorRotation,
     handleSetDefaultRotation,
     handleSaveAllCurrentAsDefault,
@@ -124,10 +127,13 @@ Object.assign(window, {
     openAddScheduleModal,
     closeScheduleModal,
     onScheduleActionChange,
+    populateScheduleMonitorOptions,
     handleCreateSchedule,
     toggleSchedule,
     deleteSchedule,
     loadMonitorsData,
+    updateMonitorAvailabilityUI,
+    updateHardwareStatusBar,
     handleApplyMonitorRotation,
     handleSetDefaultRotation,
     handleSaveAllCurrentAsDefault,
@@ -216,6 +222,10 @@ function setupEventListeners() {
 // Data Fetching & Sync
 // -----------------------------------------------------------------------------
 async function refreshActiveNodeData() {
+    if (appState.monitorsLoaded) {
+        updateMonitorAvailabilityUI();
+        updateHardwareStatusBar();
+    }
     await Promise.all([
         loadWebsites(),
         loadImages(),

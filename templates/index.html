@@ -128,7 +128,7 @@
                 <!-- Sidebar Hardware Status Footer Card -->
                 <div class="sidebar-hardware-card">
                     <div class="sidebar-hardware-title">
-                        <span class="monitor-status-dot"></span>
+                        <span class="monitor-status-dot" id="sidebarHwDot"></span>
                         <span>Hardware Engine</span>
                     </div>
                     <div class="sidebar-hardware-row">
@@ -140,14 +140,14 @@
                         <span class="hw-value" id="sidebarHostVal">pi.spear.ac</span>
                     </div>
                     <div class="sidebar-hardware-row">
-                        <span class="hw-label">Display Mode</span>
-                        <span class="hw-value" id="sidebarDisplayMode">2 Displays</span>
+                        <span class="hw-label">Displays</span>
+                        <span class="hw-value" id="sidebarDisplayMode">Checking...</span>
                     </div>
-                    <div class="sidebar-hardware-row">
+                    <div class="sidebar-hardware-row" id="sidebarMon1Row">
                         <span class="hw-label">Mon 1 Default</span>
                         <span class="hw-value" id="sidebarMon1Rot">left</span>
                     </div>
-                    <div class="sidebar-hardware-row">
+                    <div class="sidebar-hardware-row" id="sidebarMon2Row">
                         <span class="hw-label">Mon 2 Default</span>
                         <span class="hw-value" id="sidebarMon2Rot">right</span>
                     </div>
@@ -167,42 +167,57 @@
                                     <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
                                     </svg>
-                                    Dual Monitor Mixer
+                                    <span id="mixerHeadingText">Monitor Mixer</span>
                                     <span id="mixerActivePiBadge" class="mixer-target-pi-badge is-local">Main Pi (pi.spear.ac)</span>
                                 </h2>
-                                <p class="card-subtext">Control Monitor 1 and Monitor 2 with different websites, slideshows, or images independently</p>
+                                <p class="card-subtext" id="mixerSubtext">Control connected displays with websites, slideshows, or images</p>
                             </div>
                             <div class="mixer-header-actions">
-                                <button id="applyMixerAllPisBtn" class="btn btn-subtle-secondary" onclick="applyDualMixerAllPis()" title="Broadcast this Monitor 1 &amp; Monitor 2 setup to all connected Pis">
+                                <button id="applyMixerAllPisBtn" class="btn btn-subtle-secondary" onclick="applyDualMixerAllPis()" title="Broadcast this setup to all connected Pis with displays">
                                     <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
                                     </svg>
                                     <span>Apply to All Pis</span>
                                 </button>
-                                <button class="btn btn-hero-primary" onclick="applyDualMixer()">
+                                <button id="applyMixerPrimaryBtn" class="btn btn-hero-primary" onclick="applyDualMixer()">
                                     <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
                                     </svg>
-                                    <span>Apply Both Monitors</span>
+                                    <span id="applyMixerPrimaryLabel">Apply Both Monitors</span>
                                 </button>
                             </div>
                         </div>
                         <div class="card-body">
+                            <!-- Empty State when 0 Monitors Are Attached -->
+                            <div id="mixerNoMonitorsState" class="no-monitors-empty-state" style="display: none;">
+                                <div class="no-monitors-icon">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/><line x1="2" x2="22" y1="3" y2="17"/>
+                                    </svg>
+                                </div>
+                                <h3 id="noMonitorsTitle">No Monitors Attached</h3>
+                                <p id="noMonitorsDesc">No connected HDMI displays were detected on this Pi. Plug in a monitor and click Refresh Monitors to configure it.</p>
+                                <div class="no-monitors-actions">
+                                    <button type="button" class="btn btn-sm btn-subtle-secondary" onclick="loadMonitorsData()">
+                                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                        <span>Refresh Monitors</span>
+                                    </button>
+                                </div>
+                            </div>
+
                             <!-- Display Hardware & Startup Defaults Banner -->
-                            <div class="display-defaults-banner flex-between">
+                            <div id="mixerDefaultsBanner" class="display-defaults-banner flex-between">
                                 <div class="defaults-banner-info">
                                     <div class="defaults-banner-title">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                                         <span>Startup Default Orientations</span>
                                     </div>
                                     <div class="defaults-banner-pills" id="hardwareDefaultsSummary">
-                                        <span class="def-mon-tag">Mon 1: <strong>Portrait (Left)</strong></span>
-                                        <span class="def-mon-separator">&bull;</span>
-                                        <span class="def-mon-tag">Mon 2: <strong>Portrait (Right)</strong></span>
+                                        <!-- Populated dynamically for available monitors -->
                                     </div>
                                 </div>
                                 <div class="defaults-banner-actions">
-                                    <button class="btn btn-xs btn-neutral" onclick="handleSaveAllCurrentAsDefault()" title="Save both current orientations as reboot defaults">
+                                    <button class="btn btn-xs btn-neutral" onclick="handleSaveAllCurrentAsDefault()" title="Save active orientations as reboot defaults">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                                         <span>Set Current as Default</span>
                                     </button>
@@ -213,16 +228,16 @@
                                 </div>
                             </div>
 
-                            <div class="split-columns" style="grid-template-columns: 1fr 1fr;">
+                            <div id="mixerMonitorsGrid" class="split-columns" style="grid-template-columns: 1fr 1fr;">
                                 <!-- Monitor 1 Configurator -->
-                                <div class="card monitor-config-card">
+                                <div id="mon1Card" class="card monitor-config-card">
                                     <div class="card-header flex-between">
                                         <div class="monitor-title-wrapper">
                                             <span class="monitor-status-dot"></span>
                                             <h3>Monitor 1</h3>
                                             <span class="monitor-badge mon1-accent" id="mon1HwBadge">HDMI-1</span>
                                         </div>
-                                        <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
+                                        <button id="mon1ApplySingleBtn" class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
                                             Update Monitor 1 Only
                                         </button>
                                     </div>
@@ -320,7 +335,7 @@
                                 </div>
 
                                 <!-- Monitor 2 Configurator -->
-                                <div class="card monitor-config-card">
+                                <div id="mon2Card" class="card monitor-config-card">
                                     <div class="card-header flex-between">
                                         <div class="monitor-title-wrapper">
                                             <span class="monitor-status-dot"></span>
@@ -600,25 +615,26 @@
                                     <strong>Start Slideshow Now:</strong>
                                     <span id="slideshowSummaryText">Random shuffle every 30s</span>
                                 </div>
-                                <div class="launch-button-group">
-                                    <button class="btn btn-hero-primary" onclick="launchSlideshow('both')">
+                                <div class="launch-button-group" id="slideshowLaunchButtons">
+                                    <button id="launchSlideshowBothBtn" class="btn btn-hero-primary" onclick="launchSlideshow('both')">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 9v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
                                         </svg>
                                         <span>Both Monitors</span>
                                     </button>
-                                    <button class="btn btn-subtle-secondary" onclick="launchSlideshow('1')">
+                                    <button id="launchSlideshowMon1Btn" class="btn btn-subtle-secondary" onclick="launchSlideshow('1')">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
                                         </svg>
                                         <span>Monitor 1</span>
                                     </button>
-                                    <button class="btn btn-subtle-secondary" onclick="launchSlideshow('2')">
+                                    <button id="launchSlideshowMon2Btn" class="btn btn-subtle-secondary" onclick="launchSlideshow('2')">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
                                         </svg>
                                         <span>Monitor 2</span>
                                     </button>
+                                    <span id="slideshowNoLocalMonTag" class="no-local-mon-pill" style="display: none;">No monitor attached to this Pi</span>
                                     <button id="launchSlideshowAllPisBtn" class="btn btn-subtle-secondary" onclick="broadcastSlideshow('both')" title="Stream slideshow across Main + Secondary connected Pis">
                                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
