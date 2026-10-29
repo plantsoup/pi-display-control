@@ -208,7 +208,8 @@ class PiDisplayControlTestCase(unittest.TestCase):
 
         self.assertTrue(callable(display.start_display))
         self.assertTrue(callable(display.blank_screen))
-        self.assertEqual(display.DEFAULT_AUTODARTS_URL2, "https://lastfm.spear.ac/?user=amazingdevice")
+        self.assertEqual(display.DEFAULT_AUTODARTS_URL, "https://play.autodarts.io")
+        self.assertEqual(display.DEFAULT_AUTODARTS_URL2, "https://play.autodarts.io")
         self.assertTrue(callable(services.storage.load_websites))
         self.assertTrue(callable(services.display_service.trigger_display_action))
         self.assertTrue(callable(display.apply_monitor_rotation))
@@ -281,24 +282,24 @@ class PiDisplayControlTestCase(unittest.TestCase):
         self.assertTrue(data_reset['success'])
 
     def test_nodes_url_normalization_and_payload_streaming(self):
-        """Test URL normalization for pi.spear.ac / pi2.spear.ac / LAN IPs and remote viewer streaming"""
+        """Test URL normalization for domains / .local / LAN IPs and remote viewer streaming"""
         from services.nodes_service import (
             normalize_node_url,
             is_self_node,
             prepare_remote_display_payload
         )
 
-        self.assertEqual(normalize_node_url("pi.spear.ac"), "https://pi.spear.ac")
-        self.assertEqual(normalize_node_url("pi2.spear.ac"), "https://pi2.spear.ac")
-        self.assertEqual(normalize_node_url("https://pi2.spear.ac/api/status"), "https://pi2.spear.ac")
+        self.assertEqual(normalize_node_url("pi.example.com"), "https://pi.example.com")
+        self.assertEqual(normalize_node_url("pi2.example.com"), "https://pi2.example.com")
+        self.assertEqual(normalize_node_url("https://pi2.example.com/api/status"), "https://pi2.example.com")
         self.assertEqual(normalize_node_url("192.168.1.45:5000"), "http://192.168.1.45:5000")
         self.assertEqual(normalize_node_url("pi2.local"), "http://pi2.local")
 
         with self.assertRaises(ValueError):
-            normalize_node_url("ftp://pi2.spear.ac")
+            normalize_node_url("ftp://pi2.example.com")
 
-        self.assertTrue(is_self_node("https://pi2.spear.ac", request_host="pi2.spear.ac"))
-        self.assertFalse(is_self_node("https://pi2.spear.ac", request_host="pi.spear.ac"))
+        self.assertTrue(is_self_node("https://pi2.example.com", request_host="pi2.example.com"))
+        self.assertFalse(is_self_node("https://pi2.example.com", request_host="pi.example.com"))
 
         # Verify streaming Main Pi slideshow to remote Pi converts to Main Pi's /viewer URL
         streamed = prepare_remote_display_payload({
@@ -308,28 +309,29 @@ class PiDisplayControlTestCase(unittest.TestCase):
             "interval": 25,
             "fit": "cover",
             "stream_from_main": True
-        }, "https://pi.spear.ac")
+        }, "https://pi.example.com")
 
         self.assertEqual(streamed["monitor"], "both")
         self.assertEqual(streamed["monitor1"]["type"], "website")
-        self.assertIn("https://pi.spear.ac/viewer?monitor=1&mode=random&interval=25&fit=cover", streamed["monitor1"]["url"])
-        self.assertIn("https://pi.spear.ac/viewer?monitor=2&mode=random&interval=25&fit=cover", streamed["monitor2"]["url"])
+        self.assertIn("https://pi.example.com/viewer?monitor=1&mode=random&interval=25&fit=cover", streamed["monitor1"]["url"])
+        self.assertIn("https://pi.example.com/viewer?monitor=2&mode=random&interval=25&fit=cover", streamed["monitor2"]["url"])
 
         # Verify mixed monitor payload with main_image and website
         mixed_stream = prepare_remote_display_payload({
             "monitor": "both",
             "monitor1": {"type": "website", "url": "https://play.autodarts.io"},
             "monitor2": {"type": "main_image", "image": "poster.jpg", "fit": "contain"}
-        }, "https://pi.spear.ac")
+        }, "https://pi.example.com")
         self.assertEqual(mixed_stream["monitor1"]["url"], "https://play.autodarts.io")
         self.assertEqual(
             mixed_stream["monitor2"]["url"],
-            "https://pi.spear.ac/viewer?single=poster.jpg&monitor=2&fit=contain"
+            "https://pi.example.com/viewer?single=poster.jpg&monitor=2&fit=contain"
         )
 
     def test_nodes_defaults_crud_and_live_peer_connection(self):
-        """Test default pi.spear.ac / pi2.spear.ac config, CRUD, proxy, broadcast, and sync with a live peer server"""
+        """Test generic default node config, env var seeding, CRUD, proxy, broadcast, and sync with a live peer server"""
         import threading
+        from unittest.mock import patch
         from werkzeug.serving import make_server
         from app import create_app, NODES_CONFIG_FILE
 
@@ -343,14 +345,34 @@ class PiDisplayControlTestCase(unittest.TestCase):
         peer_server = None
         peer_thread = None
         try:
-            # 1. Verify default nodes include Main Pi (pi.spear.ac) and Secondary Pi (pi2.spear.ac)
+            # 1. Verify generic defaults: local node auto-detects host URL and no fake remote nodes are pre-seeded
             res_list = self.client.get('/api/nodes')
             self.assertEqual(res_list.status_code, 200)
             list_data = json.loads(res_list.data)
             self.assertTrue(list_data['success'])
-            self.assertEqual(list_data['local']['url'], 'https://pi.spear.ac')
-            self.assertEqual(len(list_data['nodes']), 1)
-            self.assertEqual(list_data['nodes'][0]['url'], 'https://pi2.spear.ac')
+            self.assertEqual(list_data['local']['configured_url'], '')
+            self.assertTrue(list_data['local']['url'].startswith(('http://', 'https://')))
+            self.assertEqual(len(list_data['nodes']), 0)
+
+            # Verify optional MAIN_PI_URL / SECONDARY_PI_URL environment variable seeding
+            with patch.dict(os.environ, {
+                'MAIN_PI_URL': 'https://pi.example.com',
+                'SECONDARY_PI_URL': 'https://pi2.example.com'
+            }):
+                res_env = self.client.get('/api/nodes')
+                env_data = json.loads(res_env.data)
+                self.assertEqual(env_data['local']['url'], 'https://pi.example.com')
+                self.assertEqual(len(env_data['nodes']), 1)
+                self.assertEqual(env_data['nodes'][0]['url'], 'https://pi2.example.com')
+
+            # Verify setting and clearing local public URL override
+            res_set_local = self.client.put('/api/nodes/local', json={'url': 'pi.example.com'})
+            self.assertEqual(res_set_local.status_code, 200)
+            self.assertEqual(json.loads(res_set_local.data)['node']['configured_url'], 'https://pi.example.com')
+
+            res_clear_local = self.client.put('/api/nodes/local', json={'url': ''})
+            self.assertEqual(res_clear_local.status_code, 200)
+            self.assertEqual(json.loads(res_clear_local.data)['node']['configured_url'], '')
 
             # Cannot delete local Pi
             res_del_local = self.client.delete('/api/nodes/local')

@@ -246,7 +246,7 @@ export function updateHardwareStatusBar() {
     const sbDisplays = document.getElementById('sidebarDisplayMode');
 
     if (sbTarget) sbTarget.textContent = activeNode.name || 'Main Pi';
-    if (sbHost) sbHost.textContent = formatHostShort(activeNode.url || 'pi.spear.ac');
+    if (sbHost) sbHost.textContent = formatHostShort(activeNode.url || window.location?.host || 'local');
     if (sbDot) {
         sbDot.classList.toggle('is-empty', appState.monitorsLoaded && count === 0);
     }

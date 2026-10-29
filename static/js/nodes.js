@@ -1,6 +1,6 @@
 /**
  * Connected Pis & Multi-Display Fleet Management
- * Connects Main Pi (pi.spear.ac), Secondary Pi (pi2.spear.ac), and additional Pi Display Control nodes.
+ * Connects the local Raspberry Pi and additional remote Pi Display Control nodes.
  */
 
 import {
@@ -615,7 +615,7 @@ export function renderNodesGrid() {
                         ` : `
                             <button type="button" class="btn btn-xs btn-subtle-secondary"
                                     onclick="openEditNodeModal('local')"
-                                    title="Configure Main Pi name and public URL (e.g. https://pi.spear.ac)">
+                                    title="Configure this Pi's display name and optional public URL">
                                 ${getIcon('edit')} Edit Host URL
                             </button>
                         `}
@@ -812,7 +812,8 @@ export function openAddNodeModal() {
     if (nameInput) nameInput.value = '';
     if (urlInput) {
         urlInput.value = '';
-        urlInput.placeholder = 'e.g., pi2.spear.ac or http://192.168.1.50:5000';
+        urlInput.required = true;
+        urlInput.placeholder = 'e.g., pi2.local:5000, 192.168.1.50:5000, or pi2.example.com';
     }
     if (roleInput) roleInput.value = 'secondary';
     if (sslCheck) sslCheck.checked = true;
@@ -849,7 +850,13 @@ export function openEditNodeModal(nodeId) {
     }
     if (editId) editId.value = nodeId;
     if (nameInput) nameInput.value = node.name || '';
-    if (urlInput) urlInput.value = node.url || '';
+    if (urlInput) {
+        urlInput.value = nodeId === 'local' ? (node.configured_url ?? '') : (node.url || '');
+        urlInput.required = nodeId !== 'local';
+        urlInput.placeholder = nodeId === 'local'
+            ? `Optional override (auto-detected: ${node.url || window.location?.origin || 'local'})`
+            : 'e.g., pi2.local:5000, 192.168.1.50:5000, or pi2.example.com';
+    }
     if (roleInput) roleInput.value = node.role || (nodeId === 'local' ? 'main' : 'secondary');
     if (sslCheck) sslCheck.checked = node.verify_ssl !== false;
     if (sslGroup) sslGroup.style.display = nodeId === 'local' ? 'none' : 'flex';
@@ -873,7 +880,7 @@ export async function handleTestNodeConnection() {
     const rawUrl = urlInput ? urlInput.value.trim() : '';
 
     if (!rawUrl) {
-        showToast('Enter a hostname or URL to test (e.g., pi2.spear.ac)', 'error');
+        showToast('Enter a hostname or URL to test (e.g., pi2.local:5000 or 192.168.1.50:5000)', 'error');
         return;
     }
 
@@ -941,8 +948,8 @@ export async function handleSaveNode(e) {
     const role = document.getElementById('nodeRoleInput')?.value || 'secondary';
     const verifySsl = document.getElementById('nodeVerifySslInput')?.checked !== false;
 
-    if (!name || !url) {
-        showToast('Both Pi name and hostname/URL are required', 'error');
+    if (!name || (!url && editId !== 'local')) {
+        showToast(editId === 'local' ? 'Pi display name is required' : 'Both Pi name and hostname/URL are required', 'error');
         return;
     }
 

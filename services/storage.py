@@ -40,8 +40,8 @@ DISPLAY_CONFIG_FILE = os.getenv('DISPLAY_CONFIG_FILE', os.path.join(DATA_DIR, "d
 NODES_CONFIG_FILE = os.getenv('NODES_CONFIG_FILE', os.path.join(DATA_DIR, "nodes.json"))
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(DATA_DIR, "uploads", "images"))
 
-DEFAULT_MAIN_PI_URL = os.getenv('MAIN_PI_URL', 'https://pi.spear.ac')
-DEFAULT_SECONDARY_PI_URL = os.getenv('SECONDARY_PI_URL', 'https://pi2.spear.ac')
+DEFAULT_MAIN_PI_URL = os.getenv('MAIN_PI_URL', '').strip()
+DEFAULT_SECONDARY_PI_URL = os.getenv('SECONDARY_PI_URL', '').strip()
 
 # Ensure uploads folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -124,10 +124,14 @@ def save_schedules(schedules):
 def get_default_nodes_config():
     """
     Build default connected Pi nodes configuration.
-    Defaults to Main Pi (pi.spear.ac) as local and Secondary Pi (pi2.spear.ac) as connected peer,
-    automatically inverting if running on a host named pi2 / PI_NODE_ROLE=secondary.
+    Defaults to a single local Main Pi with an auto-detected host URL and no pre-seeded
+    remote peers unless MAIN_PI_URL / SECONDARY_PI_URL environment variables are set.
+    Automatically inverts local role if running on a host named pi2 / PI_NODE_ROLE=secondary.
     """
     role_env = os.getenv('PI_NODE_ROLE', '').strip().lower()
+    main_url = os.getenv('MAIN_PI_URL', DEFAULT_MAIN_PI_URL).strip()
+    secondary_url = os.getenv('SECONDARY_PI_URL', DEFAULT_SECONDARY_PI_URL).strip()
+
     try:
         hostname = socket.gethostname().lower()
     except Exception:
@@ -141,44 +145,47 @@ def get_default_nodes_config():
     )
 
     if is_secondary_host:
+        nodes = []
+        if main_url:
+            nodes.append({
+                "id": "main-pi",
+                "name": "Main Pi",
+                "url": main_url,
+                "role": "main",
+                "enabled": True,
+                "verify_ssl": True,
+                "api_key": ""
+            })
         return {
             "local": {
                 "id": "local",
                 "name": "Secondary Pi",
-                "url": DEFAULT_SECONDARY_PI_URL,
+                "url": secondary_url,
                 "role": "secondary"
             },
-            "nodes": [
-                {
-                    "id": "main-pi",
-                    "name": "Main Pi",
-                    "url": DEFAULT_MAIN_PI_URL,
-                    "role": "main",
-                    "enabled": True,
-                    "verify_ssl": True,
-                    "api_key": ""
-                }
-            ]
+            "nodes": nodes
         }
+
+    nodes = []
+    if secondary_url:
+        nodes.append({
+            "id": "secondary-pi2",
+            "name": "Secondary Pi",
+            "url": secondary_url,
+            "role": "secondary",
+            "enabled": True,
+            "verify_ssl": True,
+            "api_key": ""
+        })
 
     return {
         "local": {
             "id": "local",
             "name": "Main Pi",
-            "url": DEFAULT_MAIN_PI_URL,
+            "url": main_url,
             "role": "main"
         },
-        "nodes": [
-            {
-                "id": "secondary-pi2",
-                "name": "Secondary Pi",
-                "url": DEFAULT_SECONDARY_PI_URL,
-                "role": "secondary",
-                "enabled": True,
-                "verify_ssl": True,
-                "api_key": ""
-            }
-        ]
+        "nodes": nodes
     }
 
 def load_nodes_config():

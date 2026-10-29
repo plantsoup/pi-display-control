@@ -9,8 +9,8 @@ from .browser import get_x_env, find_chromium, kill_chromium, fix_chromium_prefe
 from .monitors import get_connected_monitors
 from .window import get_xdotool_windows, position_window
 
-DEFAULT_AUTODARTS_URL = "https://play.autodarts.io/boards/64a51258-5e52-4a97-9311-9cb81bd7e355/follow"
-DEFAULT_AUTODARTS_URL2 = "https://lastfm.spear.ac/?user=amazingdevice"
+DEFAULT_AUTODARTS_URL = os.getenv("DEFAULT_DISPLAY_URL", os.getenv("AUTODARTS_URL", "https://play.autodarts.io"))
+DEFAULT_AUTODARTS_URL2 = os.getenv("DEFAULT_DISPLAY_URL2", os.getenv("AUTODARTS_URL2", DEFAULT_AUTODARTS_URL))
 
 def start_display(url1="", url2="", monitor="both"):
     """

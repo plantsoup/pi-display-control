@@ -38,10 +38,14 @@ def _is_proxy_loop():
 def list_nodes():
     """Return configured local and remote Pi nodes immediately (without network probing)."""
     cfg = load_nodes_config()
+    resolved_base = resolve_public_base_url(request.host_url)
     local_node = dict(cfg["local"])
+    configured_url = (local_node.get("url") or "").strip()
     local_node["id"] = "local"
     local_node["is_local"] = True
     local_node["enabled"] = True
+    local_node["configured_url"] = configured_url
+    local_node["url"] = resolved_base
 
     remote_list = []
     for n in cfg.get("nodes", []):
@@ -57,14 +61,14 @@ def list_nodes():
         "local": local_node,
         "nodes": remote_list,
         "all_nodes": [local_node] + remote_list,
-        "main_base_url": resolve_public_base_url(request.host_url)
+        "main_base_url": resolved_base
     })
 
 
 @api_nodes_bp.route("/api/nodes/overview", methods=["GET"])
 def nodes_overview():
     """Poll live status, display state, and connected monitors across all configured Pis concurrently."""
-    overview = get_all_nodes_overview(request_host=request.host)
+    overview = get_all_nodes_overview(request_host=request.host, request_host_url=request.host_url)
     online_count = sum(1 for n in overview if n.get("online"))
     total_displays = sum(int(n.get("monitor_count") or 0) for n in overview if n.get("online"))
     return jsonify({
@@ -179,16 +183,22 @@ def update_node(node_id):
         local_cfg = cfg["local"]
         if "name" in data and str(data["name"]).strip():
             local_cfg["name"] = str(data["name"]).strip()
-        if "url" in data and str(data["url"]).strip():
-            try:
-                local_cfg["url"] = normalize_node_url(str(data["url"]))
-            except ValueError as e:
-                return jsonify({"success": False, "error": str(e)}), 400
+        if "url" in data:
+            raw_local_url = str(data["url"] or "").strip()
+            if raw_local_url:
+                try:
+                    local_cfg["url"] = normalize_node_url(raw_local_url)
+                except ValueError as e:
+                    return jsonify({"success": False, "error": str(e)}), 400
+            else:
+                local_cfg["url"] = ""
         if "role" in data and str(data["role"]).strip():
             local_cfg["role"] = str(data["role"]).strip()
         save_nodes_config(cfg)
         out = dict(local_cfg)
         out["is_local"] = True
+        out["configured_url"] = local_cfg.get("url", "")
+        out["url"] = resolve_public_base_url(request.host_url)
         return jsonify({"success": True, "message": "Updated local Pi settings", "node": out})
 
     target = None
@@ -243,7 +253,7 @@ def delete_node(node_id):
 def single_node_status(node_id):
     """Fetch live status and connected monitors for a single Pi node."""
     if node_id == "local":
-        return jsonify({"success": True, "node": get_local_node_overview()})
+        return jsonify({"success": True, "node": get_local_node_overview(request_host_url=request.host_url)})
 
     node = get_node_by_id(node_id)
     if not node:

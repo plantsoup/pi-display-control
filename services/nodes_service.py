@@ -1,7 +1,7 @@
 """
 Multi-Pi Node Discovery, Remote Proxy, Display Dispatch, Broadcast, and Media Sync Service.
 Enables connecting and controlling multiple Raspberry Pi instances running Pi Display Control
-(e.g., Main Pi at pi.spear.ac and Secondary Pi at pi2.spear.ac).
+(e.g., a primary Pi and one or more secondary or satellite Pis).
 """
 
 import os
@@ -10,6 +10,7 @@ import ssl
 import json
 import time
 import uuid
+import socket
 import mimetypes
 import urllib.parse
 import urllib.error
@@ -23,6 +24,7 @@ from display import (
     apply_display_rotations
 )
 from .storage import (
+    PORT,
     UPLOAD_FOLDER,
     LEGACY_UPLOADS,
     load_websites,
@@ -62,8 +64,8 @@ def normalize_node_url(raw_url):
     """
     Normalize a user-provided Pi hostname or URL into a clean base URL (no trailing slash).
     Examples:
-      - 'pi2.spear.ac' -> 'https://pi2.spear.ac'
-      - 'https://pi2.spear.ac/' -> 'https://pi2.spear.ac'
+      - 'pi2.example.com' -> 'https://pi2.example.com'
+      - 'https://pi2.example.com/' -> 'https://pi2.example.com'
       - '192.168.1.50:5000' -> 'http://192.168.1.50:5000'
       - 'http://pi2.local:5001/api/status' -> 'http://pi2.local:5001'
     """
@@ -173,6 +175,25 @@ def get_node_by_id(node_id):
     return None
 
 
+def _detect_local_base_url():
+    """Detect a network-reachable local/LAN base URL when no explicit URL or request host is available."""
+    host = "localhost"
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            ip = s.getsockname()[0]
+            if ip and not ip.startswith("127."):
+                host = ip
+    except Exception:
+        try:
+            hn = socket.gethostname()
+            if hn:
+                host = hn
+        except Exception:
+            pass
+    return f"http://{host}:{PORT}"
+
+
 def resolve_public_base_url(request_host_url=None):
     """
     Resolve Main/Local Pi's network-reachable base URL so remote Pis can stream
@@ -181,26 +202,26 @@ def resolve_public_base_url(request_host_url=None):
     cfg = load_nodes_config()
     configured_url = (cfg.get("local", {}).get("url") or "").strip().rstrip("/")
 
-    # If request came in on a real network host (not 127.0.0.1/localhost), prefer configured URL or request_host_url
-    if request_host_url:
-        req_clean = request_host_url.strip().rstrip("/")
-        try:
-            parsed_req = urllib.parse.urlparse(req_clean)
-            if parsed_req.hostname and parsed_req.hostname not in ("127.0.0.1", "localhost"):
-                if not configured_url:
-                    return req_clean
-        except Exception:
-            pass
-
     if configured_url:
         try:
             return normalize_node_url(configured_url)
         except ValueError:
             pass
 
+    # If request came in on a real network host (not 127.0.0.1/localhost), use request_host_url
     if request_host_url:
+        req_clean = request_host_url.strip().rstrip("/")
+        try:
+            parsed_req = urllib.parse.urlparse(req_clean)
+            if parsed_req.hostname and parsed_req.hostname not in ("127.0.0.1", "localhost", "::1"):
+                return req_clean
+        except Exception:
+            pass
+
+    detected = _detect_local_base_url()
+    if request_host_url and "://localhost:" in detected:
         return request_host_url.strip().rstrip("/")
-    return "https://pi.spear.ac"
+    return detected
 
 
 def _build_ssl_context(verify_ssl=True):
@@ -324,10 +345,12 @@ def get_local_monitors_list():
     return monitors_data, len(monitors_data), defaults
 
 
-def get_local_node_overview():
+def get_local_node_overview(request_host_url=None):
     """Return full runtime status and monitor inventory for this local Pi."""
     cfg = load_nodes_config()
     local_meta = cfg["local"]
+    configured_url = (local_meta.get("url") or "").strip()
+    effective_url = resolve_public_base_url(request_host_url)
     schedules = load_schedules()
     images = load_images()
     websites = load_websites()
@@ -336,7 +359,8 @@ def get_local_node_overview():
     return {
         "id": "local",
         "name": local_meta.get("name", "Main Pi"),
-        "url": local_meta.get("url", "https://pi.spear.ac"),
+        "url": effective_url,
+        "configured_url": configured_url,
         "role": local_meta.get("role", "main"),
         "is_local": True,
         "enabled": True,
@@ -458,7 +482,7 @@ def probe_node(raw_url, verify_ssl=True, api_key="", auto_discover=False, timeou
     }
 
 
-def _build_remote_node_overview(node, request_host=None, timeout=3.5):
+def _build_remote_node_overview(node, request_host=None, request_host_url=None, timeout=3.5):
     """Assemble overview object for a configured remote node."""
     base_info = {
         "id": node.get("id"),
@@ -485,7 +509,7 @@ def _build_remote_node_overview(node, request_host=None, timeout=3.5):
         return base_info
 
     if is_self_node(base_info["url"], request_host=request_host):
-        local_ov = get_local_node_overview()
+        local_ov = get_local_node_overview(request_host_url=request_host_url)
         base_info.update({
             "is_self_alias": True,
             "online": True,
@@ -520,12 +544,12 @@ def _build_remote_node_overview(node, request_host=None, timeout=3.5):
     return base_info
 
 
-def get_all_nodes_overview(request_host=None, timeout=3.5):
+def get_all_nodes_overview(request_host=None, request_host_url=None, timeout=3.5):
     """
     Gather live status and display/monitor data for Local Pi + all configured Remote Pis concurrently.
     """
     cfg = load_nodes_config()
-    local_overview = get_local_node_overview()
+    local_overview = get_local_node_overview(request_host_url=request_host_url)
     remote_nodes = cfg.get("nodes", [])
 
     if not remote_nodes:
@@ -535,7 +559,7 @@ def get_all_nodes_overview(request_host=None, timeout=3.5):
     max_workers = min(8, max(1, len(remote_nodes)))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {
-            executor.submit(_build_remote_node_overview, n, request_host, timeout): idx
+            executor.submit(_build_remote_node_overview, n, request_host, request_host_url, timeout): idx
             for idx, n in enumerate(remote_nodes)
         }
         for fut in as_completed(future_map):
@@ -557,7 +581,7 @@ def get_all_nodes_overview(request_host=None, timeout=3.5):
                     "monitor_count": 0
                 }
 
-    # Filter out self-alias duplicates if running directly on pi2.spear.ac with default config
+    # Filter out self-alias duplicates if a configured remote URL resolves to this host
     results = [local_overview]
     for r in ordered_remotes:
         if r and not r.get("is_self_alias"):
@@ -567,7 +591,7 @@ def get_all_nodes_overview(request_host=None, timeout=3.5):
 
 def _build_main_viewer_url(main_base_url, monitor_id="1", mode="random", interval=30, fit="cover", single_image=None):
     """Build a full URL pointing to Main Pi's /viewer endpoint for remote Chromium kiosk streaming."""
-    base = (main_base_url or "https://pi.spear.ac").rstrip("/")
+    base = (main_base_url or resolve_public_base_url()).rstrip("/")
     fit_clean = fit if fit in ("cover", "contain") else "cover"
     if single_image:
         enc_img = urllib.parse.quote(str(single_image))
@@ -580,7 +604,7 @@ def prepare_remote_display_payload(payload, main_base_url):
     """
     Transform display payload for a remote Pi node.
     Translates 'main_slideshow', 'main_image', or 'stream_from_main=True' targets into
-    fullscreen kiosk URLs streaming from Main Pi (e.g., https://pi.spear.ac/viewer?...).
+    fullscreen kiosk URLs streaming from Main Pi (e.g., https://pi.example.com/viewer?...).
     """
     data = dict(payload or {})
     stream_from_main = bool(data.pop("stream_from_main", False))

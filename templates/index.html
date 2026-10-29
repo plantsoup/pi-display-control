@@ -66,7 +66,7 @@
                     <span>Target Pi:</span>
                 </span>
                 <div class="pi-switcher-pills" id="nodeSwitcherPills">
-                    <!-- Populated dynamically with Main Pi (pi.spear.ac), Secondary Pi (pi2.spear.ac), etc. -->
+                    <!-- Populated dynamically with Local Pi and connected remote Pi nodes -->
                 </div>
             </div>
             <div class="pi-switcher-right" id="nodeSwitcherRight">
@@ -137,7 +137,7 @@
                     </div>
                     <div class="sidebar-hardware-row">
                         <span class="hw-label">Host</span>
-                        <span class="hw-value" id="sidebarHostVal">pi.spear.ac</span>
+                        <span class="hw-value" id="sidebarHostVal">local</span>
                     </div>
                     <div class="sidebar-hardware-row">
                         <span class="hw-label">Displays</span>
@@ -168,7 +168,7 @@
                                         <line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>
                                     </svg>
                                     <span id="mixerHeadingText">Monitor Mixer</span>
-                                    <span id="mixerActivePiBadge" class="mixer-target-pi-badge is-local">Main Pi (pi.spear.ac)</span>
+                                    <span id="mixerActivePiBadge" class="mixer-target-pi-badge is-local">Main Pi</span>
                                 </h2>
                                 <p class="card-subtext" id="mixerSubtext">Control connected displays with websites, slideshows, or images</p>
                             </div>
@@ -456,7 +456,7 @@
                                     </svg>
                                     Connected Pis &amp; Display Wall
                                 </h2>
-                                <p class="card-subtext">Connect Raspberry Pis running Pi Display Control (Main at <code>pi.spear.ac</code>, Secondary at <code>pi2.spear.ac</code>, and additional nodes)</p>
+                                <p class="card-subtext">Connect and manage multiple Raspberry Pis running Pi Display Control across your network</p>
                             </div>
                             <div class="nodes-header-actions">
                                 <button type="button" class="btn btn-sm btn-subtle-secondary" onclick="refreshNodesOverview(true)">
@@ -887,8 +887,8 @@
 
                         <div class="form-group">
                             <label for="nodeUrlInput">Hostname or URL</label>
-                            <input type="text" id="nodeUrlInput" class="form-input" placeholder="e.g., pi2.spear.ac or http://192.168.1.50:5000" required>
-                            <small class="form-hint">Must be running Pi Display Control. Domains default to HTTPS (<code>https://pi2.spear.ac</code>), LAN IPs/ports to HTTP.</small>
+                            <input type="text" id="nodeUrlInput" class="form-input" placeholder="e.g., pi2.local:5000, 192.168.1.50:5000, or pi2.example.com" required>
+                            <small class="form-hint">Must be running Pi Display Control. Domains default to HTTPS (<code>https://pi2.example.com</code>), LAN IPs/<code>.local</code>/ports to HTTP.</small>
                         </div>
 
                         <div class="form-group">

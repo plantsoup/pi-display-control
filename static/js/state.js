@@ -2,20 +2,23 @@
  * Application State, Node Routing Helpers & Shared Utilities
  */
 
+const defaultOrigin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+
 // Global State
 export const appState = {
     activeNodeId: 'local',
     localNode: {
         id: 'local',
         name: 'Main Pi',
-        url: 'https://pi.spear.ac',
+        url: defaultOrigin,
+        configured_url: '',
         role: 'main',
         is_local: true
     },
     remoteNodes: [],
     allNodes: [],
     nodesOverview: [],
-    mainBaseUrl: 'https://pi.spear.ac',
+    mainBaseUrl: defaultOrigin,
     mainWebsites: [],
     mainImages: [],
     websites: [],
@@ -76,7 +79,7 @@ export function apiFetch(path, options = {}, nodeId = appState.activeNodeId) {
 }
 
 /**
- * Extract compact display hostname from full URL (e.g. 'https://pi2.spear.ac' -> 'pi2.spear.ac')
+ * Extract compact display hostname from full URL (e.g. 'https://pi2.example.com' -> 'pi2.example.com')
  */
 export function formatHostShort(url) {
     if (!url) return 'local';

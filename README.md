@@ -6,7 +6,7 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 
 - 🖥️ **Multi-Monitor Display Control**: Independent control for Monitor 1, Monitor 2, or Both Displays.
 - 🔗 **Multi-Pi Fleet & Remote Displays**:
-  - Pre-configured for **Main Pi** (`https://pi.spear.ac`) and **Secondary Pi** (`https://pi2.spear.ac`), with UI & API support to connect additional Pis running Pi Display Control.
+  - Connect and manage multiple Raspberry Pis running Pi Display Control across LAN IPs, `.local` mDNS hostnames, or custom HTTPS domains via the Web UI, REST API, or environment variables.
   - **1-Click Target Pi Switcher** in the header to control any connected Pi's monitors, orientations, websites, images, slideshows, power state, and schedules via server-side proxy (no CORS issues).
   - **Connected Pis & Display Wall** tab to view all Pis and their displays together, rotate remote monitors, broadcast content/power (`Wake All` / `Blank All`) across all Pis, stream Main Pi's slideshow/images directly to Secondary Pi's Chromium kiosk, or sync websites and images between Pis.
 - 🖼️ **Image Slideshow Studio**:
@@ -71,7 +71,7 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 - `DELETE /api/schedules/<id>` - Delete a schedule.
 
 ### Connected Pis & Multi-Display Fleet
-- `GET /api/nodes` - List local and connected remote Pi nodes (`pi.spear.ac`, `pi2.spear.ac`, etc.).
+- `GET /api/nodes` - List local and connected remote Pi nodes.
 - `GET /api/nodes/overview` - Concurrent live health, display status, and discovered monitors across all Pis.
 - `POST /api/nodes/probe` - Test connectivity and auto-discover a Pi running Pi Display Control.
 - `POST /api/nodes` - Connect a new remote Pi node.
@@ -91,9 +91,11 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 | `PORT` | `5000` | HTTP server listening port |
 | `DATA_DIR` | `/data` or `./data` | Directory for JSON data and uploaded image storage |
 | `WORK_DIR` | `~` | Home/working directory for user configs |
-| `MAIN_PI_URL` | `https://pi.spear.ac` | Default public URL for Main Pi |
-| `SECONDARY_PI_URL` | `https://pi2.spear.ac` | Default public URL for Secondary Pi |
+| `MAIN_PI_URL` | *(auto-detected)* | Optional public base URL override for Main Pi |
+| `SECONDARY_PI_URL` | *(none)* | Optional URL to pre-seed a connected Secondary Pi on first run |
 | `PI_NODE_ROLE` | *(auto-detected)* | Optional `'main'` or `'secondary'` override for default node seeding |
+| `DEFAULT_DISPLAY_URL` | `https://play.autodarts.io` | Default fallback kiosk URL for Monitor 1 |
+| `DEFAULT_DISPLAY_URL2` | `DEFAULT_DISPLAY_URL` | Default fallback kiosk URL for Monitor 2 |
 
 ---
 
