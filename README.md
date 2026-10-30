@@ -5,6 +5,10 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 ## Key Features
 
 - 🖥️ **Multi-Monitor Display Control**: Independent control for Monitor 1, Monitor 2, or Both Displays.
+- 🎯 **Configurable Wake & Startup Defaults**:
+  - Configure default site or wallpaper for Monitor 1 and Monitor 2 independently.
+  - Automatically loads your chosen site, single image wallpaper, or randomized slideshow whenever monitors are woken up, restarted, or booted.
+  - Easily manage defaults directly from the Monitor Mixer in the Web UI, REST API, or CLI.
 - 🔗 **Multi-Pi Fleet & Remote Displays**:
   - Connect and manage multiple Raspberry Pis running Pi Display Control across LAN IPs, `.local` mDNS hostnames, or custom HTTPS domains via the Web UI, REST API, or environment variables.
   - **1-Click Target Pi Switcher** in the header to control any connected Pi's monitors, orientations, websites, images, slideshows, power state, and schedules via server-side proxy (no CORS issues).
@@ -47,9 +51,13 @@ A comprehensive, modern web control panel and display engine for Raspberry Pi mu
 
 ### Display & Status
 - `GET /api/status` - Live display status, running mode, counts, and server time.
-- `POST /api/display` - Start display with a Website, Image, or Slideshow on Monitor 1, 2, or Both.
+- `GET /api/display/monitors` - Discovered monitors, active orientations, and saved default rotations and default content.
+- `POST /api/display` - Start display with a Website, Image, or Slideshow on Monitor 1, 2, or Both (optional `save_default: true`).
 - `DELETE /api/display` - Blank / turn off display screens.
-- `POST /api/display/wake` - Wake / turn on display screens.
+- `POST /api/display/wake` - Wake / turn on display screens and launch configured default site/wallpaper.
+- `POST /api/display/default-content` - Save persistent default site or wallpaper for Monitor 1, 2, or Both.
+- `POST /api/display/defaults` - Bulk save persistent default orientations and/or default sites/wallpapers.
+- `POST /api/display/reset-defaults` - Restore active displays to saved default orientations and default content.
 
 ### Image Library & Slideshow
 - `GET /api/images` - List uploaded images.
@@ -110,8 +118,20 @@ python3 display_manager.py start "https://play.autodarts.io" "https://example.co
 # Blank/power off screens
 python3 display_manager.py blank
 
-# Wake/power on screens
+# Wake/power on screens (loads saved default site/wallpaper)
 python3 display_manager.py wake
+
+# Configure default site or wallpaper for monitors when woken/started
+python3 display_manager.py set-default-content --monitor 1 --type website --url "https://play.autodarts.io" --name "Autodarts Board"
+python3 display_manager.py set-default-content --monitor 2 --type slideshow --mode random --interval 30
+python3 display_manager.py set-default-content --monitor 2 --type image --image "flower.jpg" --fit cover
+
+# Configure default monitor orientation
+python3 display_manager.py set-default-rotation --monitor 1 --rotation left
+python3 display_manager.py set-default-rotation --monitor 2 --rotation right
+
+# Restore displays to saved default orientations and default content
+python3 display_manager.py apply-defaults --restart
 
 # Toggle monitor 2 vertical/horizontal rotation
 python3 display_manager.py toggle-monitor2 --restart

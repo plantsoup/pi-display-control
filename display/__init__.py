@@ -18,8 +18,13 @@ from .config import (
     save_display_config,
     get_monitor_rotation,
     set_default_rotation,
+    get_monitor_default_content,
+    set_monitor_default_content,
+    resolve_monitor_default_url,
+    normalize_default_content,
     VALID_ROTATIONS,
-    ROTATION_METADATA
+    ROTATION_METADATA,
+    VALID_CONTENT_TYPES
 )
 from .power import (
     blank_screen,
@@ -50,7 +55,12 @@ __all__ = [
     'save_display_config',
     'get_monitor_rotation',
     'set_default_rotation',
+    'get_monitor_default_content',
+    'set_monitor_default_content',
+    'resolve_monitor_default_url',
+    'normalize_default_content',
     'VALID_ROTATIONS',
+    'VALID_CONTENT_TYPES',
     'ROTATION_METADATA',
     'DEFAULT_AUTODARTS_URL',
     'DEFAULT_AUTODARTS_URL2'

@@ -59,6 +59,8 @@ import {
     updateHardwareStatusBar,
     handleApplyMonitorRotation,
     handleSetDefaultRotation,
+    handleSetDefaultContent,
+    handleLoadDefaultContent,
     handleSaveAllCurrentAsDefault,
     handleResetToDefaults
 } from './js/monitors.js';
@@ -136,6 +138,8 @@ Object.assign(window, {
     updateHardwareStatusBar,
     handleApplyMonitorRotation,
     handleSetDefaultRotation,
+    handleSetDefaultContent,
+    handleLoadDefaultContent,
     handleSaveAllCurrentAsDefault,
     handleResetToDefaults,
     loadNodesConfig,

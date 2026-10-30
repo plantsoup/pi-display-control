@@ -953,3 +953,54 @@
     border-color: rgba(168, 85, 247, 0.25);
 }
 
+/* Default Content (Site / Wallpaper) Control Group */
+.default-content-control-group {
+    background: rgba(11, 17, 32, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+
+.default-content-label-row {
+    margin-bottom: 8px;
+}
+
+.default-content-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.default-content-label .svg-icon {
+    width: 14px;
+    height: 14px;
+    color: #f59e0b;
+}
+
+.default-content-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+}
+
+.default-content-action-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.default-content-options-bar {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+}
+
+

@@ -27,6 +27,10 @@ export const appState = {
     monitors: [],
     monitorsLoaded: false,
     monitorDefaults: { "1": "left", "2": "right" },
+    monitorDefaultContent: {
+        "1": { type: "website", url: "", name: "Autodarts Board" },
+        "2": { type: "slideshow", mode: "random", interval: 30, fit: "cover" }
+    },
     availableRotations: [],
     slideshowConfig: {
         mode: 'random',

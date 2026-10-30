@@ -12,6 +12,8 @@ from services.storage import (
     save_display_config,
     get_monitor_rotation,
     set_default_rotation,
+    get_monitor_default_content,
+    set_monitor_default_content,
     VALID_ROTATIONS,
     ROTATION_METADATA
 )
@@ -46,12 +48,22 @@ def get_status():
 @api_display_bp.route('/api/display/monitors', methods=['GET'])
 def get_monitors():
     """
-    Get discovered monitors, their active geometry/rotation, and saved startup defaults.
+    Get discovered monitors, their active geometry/rotation, and saved startup defaults (rotations & content).
     """
     connected = get_connected_monitors()
-    defaults = {
+    rot_defaults = {
         "1": get_monitor_rotation("1", "left"),
         "2": get_monitor_rotation("2", "right")
+    }
+    content_defaults = {
+        "1": get_monitor_default_content("1"),
+        "2": get_monitor_default_content("2")
+    }
+    defaults = {
+        "1": rot_defaults["1"],
+        "2": rot_defaults["2"],
+        "rotations": rot_defaults,
+        "content": content_defaults
     }
 
     monitors_data = []
@@ -61,7 +73,8 @@ def get_monitors():
         m_copy["index"] = idx
         m_copy["connected"] = True
         m_copy["current_rotation"] = m.get("rotation", "normal")
-        m_copy["default_rotation"] = defaults.get(mon_idx_str, "normal")
+        m_copy["default_rotation"] = rot_defaults.get(mon_idx_str, "normal")
+        m_copy["default_content"] = content_defaults.get(mon_idx_str, {})
         monitors_data.append(m_copy)
 
     return jsonify({
@@ -106,46 +119,150 @@ def rotate_display():
             "message": msg,
             "defaults": {
                 "1": get_monitor_rotation("1"),
-                "2": get_monitor_rotation("2")
+                "2": get_monitor_rotation("2"),
+                "rotations": {
+                    "1": get_monitor_rotation("1"),
+                    "2": get_monitor_rotation("2")
+                },
+                "content": {
+                    "1": get_monitor_default_content("1"),
+                    "2": get_monitor_default_content("2")
+                }
             }
         })
     return jsonify({"success": False, "error": msg}), 500
 
+@api_display_bp.route('/api/display/default-content', methods=['POST'])
+def save_default_content():
+    """
+    Save persistent default site or wallpaper content for startup and wake.
+    Payload:
+      - monitor: "1", "2", or "both"
+      - content: {"type": "website"|"image"|"slideshow", ...}
+      - contents: {"1": {...}, "2": {...}}
+      - apply_now: boolean (default False)
+    """
+    data = request.json or {}
+    apply_now = bool(data.get('apply_now', False))
+    monitor = str(data.get('monitor', '1'))
+    content = data.get('content')
+    contents = data.get('contents')
+
+    try:
+        if contents and isinstance(contents, dict):
+            for m_id, m_content in contents.items():
+                if str(m_id) in ["1", "2"]:
+                    set_monitor_default_content(str(m_id), m_content)
+        elif content and isinstance(content, dict):
+            if monitor == "both":
+                set_monitor_default_content("1", content)
+                set_monitor_default_content("2", content)
+            elif monitor in ["1", "2"]:
+                set_monitor_default_content(monitor, content)
+            else:
+                return jsonify({"success": False, "error": f"Invalid monitor id '{monitor}'"}), 400
+        else:
+            return jsonify({"success": False, "error": "Missing content or contents dictionary"}), 400
+
+        msg = "Default monitor site/wallpaper saved successfully"
+
+        if apply_now:
+            c1 = get_monitor_default_content("1")
+            c2 = get_monitor_default_content("2")
+            if monitor == "1":
+                ok, apply_msg = trigger_display_action("mixed", {"monitor": "1", "monitor1": c1})
+            elif monitor == "2":
+                ok, apply_msg = trigger_display_action("mixed", {"monitor": "2", "monitor2": c2})
+            else:
+                ok, apply_msg = trigger_display_action("mixed", {"monitor": "both", "monitor1": c1, "monitor2": c2})
+            if not ok:
+                return jsonify({"success": False, "error": f"Saved, but failed to apply: {apply_msg}"}), 500
+            msg += f" and applied: {apply_msg}"
+
+        return jsonify({
+            "success": True,
+            "message": msg,
+            "defaults": {
+                "1": get_monitor_rotation("1"),
+                "2": get_monitor_rotation("2"),
+                "rotations": {
+                    "1": get_monitor_rotation("1"),
+                    "2": get_monitor_rotation("2")
+                },
+                "content": {
+                    "1": get_monitor_default_content("1"),
+                    "2": get_monitor_default_content("2")
+                }
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
 @api_display_bp.route('/api/display/defaults', methods=['POST'])
 def save_defaults():
     """
-    Save default rotations for startup / wake.
+    Save default rotations and/or default site/wallpaper content for startup / wake.
     Payload:
-      - rotations: {"1": "left", "2": "right"}
+      - rotations: optional map {"1": "left", "2": "right"}
+      - content: optional map {"1": {...}, "2": {...}}
       - apply_now: boolean (default False)
       - restart_browser: boolean (default True)
     """
     data = request.json or {}
-    rotations = data.get('rotations', {})
+    rotations = data.get('rotations')
+    content = data.get('content') or data.get('contents')
     apply_now = bool(data.get('apply_now', False))
     restart_browser = bool(data.get('restart_browser', True))
 
-    if not rotations or not isinstance(rotations, dict):
-        return jsonify({"success": False, "error": "Invalid or missing rotations object"}), 400
+    if not rotations and not content:
+        return jsonify({"success": False, "error": "Missing rotations or content in request"}), 400
 
-    for mon_id, rot in rotations.items():
-        if rot not in VALID_ROTATIONS:
-            return jsonify({"success": False, "error": f"Invalid rotation '{rot}' for Monitor {mon_id}. Valid choices: {VALID_ROTATIONS}"}), 400
-        set_default_rotation(str(mon_id), rot)
+    messages = []
 
-    msg = "Default monitor rotations saved successfully"
+    # Handle rotations if provided
+    if rotations and isinstance(rotations, dict):
+        for mon_id, rot in rotations.items():
+            if rot not in VALID_ROTATIONS:
+                return jsonify({"success": False, "error": f"Invalid rotation '{rot}' for Monitor {mon_id}. Valid choices: {VALID_ROTATIONS}"}), 400
+            set_default_rotation(str(mon_id), rot)
+        messages.append("Default monitor rotations saved")
+
+    # Handle content if provided
+    if content and isinstance(content, dict):
+        for mon_id, mon_content in content.items():
+            if str(mon_id) in ["1", "2"]:
+                set_monitor_default_content(str(mon_id), mon_content)
+        messages.append("Default monitor site/wallpaper saved")
+
+    msg = " and ".join(messages) + " successfully"
+
     if apply_now:
-        success, apply_msg = apply_display_rotations(rotations, save_default=False, restart_chromium=restart_browser)
-        if not success:
-            return jsonify({"success": False, "error": f"Defaults saved, but failed to apply: {apply_msg}"}), 500
-        msg += f" and applied: {apply_msg}"
+        if rotations:
+            success, apply_msg = apply_display_rotations(rotations, save_default=False, restart_chromium=False)
+            if not success:
+                return jsonify({"success": False, "error": f"Defaults saved, but failed to apply rotations: {apply_msg}"}), 500
+        if restart_browser or content:
+            c1 = get_monitor_default_content("1")
+            c2 = get_monitor_default_content("2")
+            ok, apply_msg = trigger_display_action("mixed", {"monitor": "both", "monitor1": c1, "monitor2": c2})
+            if not ok:
+                return jsonify({"success": False, "error": f"Defaults saved, but failed to apply display: {apply_msg}"}), 500
+            msg += f" and applied: {apply_msg}"
 
     return jsonify({
         "success": True,
         "message": msg,
         "defaults": {
             "1": get_monitor_rotation("1"),
-            "2": get_monitor_rotation("2")
+            "2": get_monitor_rotation("2"),
+            "rotations": {
+                "1": get_monitor_rotation("1"),
+                "2": get_monitor_rotation("2")
+            },
+            "content": {
+                "1": get_monitor_default_content("1"),
+                "2": get_monitor_default_content("2")
+            }
         }
     })
 
@@ -161,7 +278,15 @@ def reset_defaults():
             "message": msg,
             "defaults": {
                 "1": get_monitor_rotation("1"),
-                "2": get_monitor_rotation("2")
+                "2": get_monitor_rotation("2"),
+                "rotations": {
+                    "1": get_monitor_rotation("1"),
+                    "2": get_monitor_rotation("2")
+                },
+                "content": {
+                    "1": get_monitor_default_content("1"),
+                    "2": get_monitor_default_content("2")
+                }
             }
         })
     return jsonify({"success": False, "error": msg}), 500

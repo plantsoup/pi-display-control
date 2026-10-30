@@ -592,6 +592,162 @@ class PiDisplayControlTestCase(unittest.TestCase):
         self.assertEqual(len(filtered_mixed), 1)
         self.assertEqual(filtered_mixed[0]["name"], "HDMI-1")
 
+    def test_default_content_persistence_and_resolution(self):
+        """Test getting, setting, and resolving default sites and wallpapers for monitors"""
+        from display.config import (
+            get_monitor_default_content,
+            set_monitor_default_content,
+            resolve_monitor_default_url,
+            DEFAULT_AUTODARTS_URL,
+            DEFAULT_AUTODARTS_URL2
+        )
+
+        # 1. Set website default for monitor 1
+        set_monitor_default_content("1", {
+            "type": "website",
+            "url": "https://dashboard.example.com",
+            "name": "Custom Dashboard"
+        })
+        c1 = get_monitor_default_content("1")
+        self.assertEqual(c1["type"], "website")
+        self.assertEqual(c1["url"], "https://dashboard.example.com")
+        self.assertEqual(c1["name"], "Custom Dashboard")
+        self.assertEqual(resolve_monitor_default_url("1"), "https://dashboard.example.com")
+
+        # 2. Set image wallpaper default for monitor 2
+        set_monitor_default_content("2", {
+            "type": "image",
+            "image": "my_background.jpg",
+            "fit": "contain"
+        })
+        c2 = get_monitor_default_content("2")
+        self.assertEqual(c2["type"], "image")
+        self.assertEqual(c2["image"], "my_background.jpg")
+        self.assertEqual(c2["fit"], "contain")
+        url2 = resolve_monitor_default_url("2")
+        self.assertIn("/viewer?single=my_background.jpg", url2)
+        self.assertIn("fit=contain", url2)
+        self.assertIn("monitor=2", url2)
+
+        # 3. Set slideshow wallpaper default for monitor 1
+        set_monitor_default_content("1", {
+            "type": "slideshow",
+            "mode": "sequential",
+            "interval": 45,
+            "fit": "cover"
+        })
+        c1_slide = get_monitor_default_content("1")
+        self.assertEqual(c1_slide["type"], "slideshow")
+        self.assertEqual(c1_slide["mode"], "sequential")
+        self.assertEqual(c1_slide["interval"], 45)
+        self.assertEqual(c1_slide["fit"], "cover")
+        url1_slide = resolve_monitor_default_url("1")
+        self.assertIn("/viewer?monitor=1", url1_slide)
+        self.assertIn("mode=sequential", url1_slide)
+        self.assertIn("interval=45", url1_slide)
+
+        # 4. Set empty URL website (Autodarts default fallback)
+        set_monitor_default_content("1", {
+            "type": "website",
+            "url": ""
+        })
+        self.assertEqual(resolve_monitor_default_url("1"), DEFAULT_AUTODARTS_URL)
+
+        # 5. Invalid monitor_id raises ValueError
+        with self.assertRaises(ValueError):
+            set_monitor_default_content("99", {"type": "website"})
+
+    def test_default_content_api_endpoints(self):
+        """Test REST API for configuring and retrieving default sites and wallpapers"""
+        # 1. POST /api/display/default-content for Monitor 1
+        res = self.client.post('/api/display/default-content', json={
+            'monitor': '1',
+            'content': {
+                'type': 'website',
+                'url': 'https://stats.autodarts.io',
+                'name': 'Autodarts Stats'
+            },
+            'apply_now': False
+        })
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['defaults']['content']['1']['type'], 'website')
+        self.assertEqual(data['defaults']['content']['1']['url'], 'https://stats.autodarts.io')
+
+        # 2. POST /api/display/default-content for Monitor 2 with wallpaper image
+        res2 = self.client.post('/api/display/default-content', json={
+            'monitor': '2',
+            'content': {
+                'type': 'image',
+                'image': 'flower.jpg',
+                'fit': 'cover'
+            },
+            'apply_now': False
+        })
+        self.assertEqual(res2.status_code, 200)
+        data2 = json.loads(res2.data)
+        self.assertTrue(data2['success'])
+        self.assertEqual(data2['defaults']['content']['2']['type'], 'image')
+        self.assertEqual(data2['defaults']['content']['2']['image'], 'flower.jpg')
+
+        # 3. GET /api/display/monitors includes content defaults
+        res_mon = self.client.get('/api/display/monitors')
+        self.assertEqual(res_mon.status_code, 200)
+        data_mon = json.loads(res_mon.data)
+        self.assertTrue(data_mon['success'])
+        self.assertIn('content', data_mon['defaults'])
+        self.assertEqual(data_mon['defaults']['content']['1']['url'], 'https://stats.autodarts.io')
+        self.assertEqual(data_mon['defaults']['content']['2']['image'], 'flower.jpg')
+
+        # 4. POST /api/display/defaults (combined rotations and content)
+        res_comb = self.client.post('/api/display/defaults', json={
+            'rotations': {'1': 'left', '2': 'right'},
+            'content': {
+                '1': {'type': 'website', 'url': 'https://8bit.website.com'},
+                '2': {'type': 'slideshow', 'mode': 'random', 'interval': 25, 'fit': 'cover'}
+            },
+            'apply_now': False
+        })
+        self.assertEqual(res_comb.status_code, 200)
+        data_comb = json.loads(res_comb.data)
+        self.assertTrue(data_comb['success'])
+        self.assertEqual(data_comb['defaults']['content']['1']['url'], 'https://8bit.website.com')
+        self.assertEqual(data_comb['defaults']['content']['2']['type'], 'slideshow')
+
+        # 5. POST /api/display with save_default=True persists default content
+        res_apply = self.client.post('/api/display', json={
+            'monitor': 'both',
+            'monitor1': {'type': 'website', 'url': 'https://play.autodarts.io'},
+            'monitor2': {'type': 'image', 'image': 'bg.png', 'fit': 'contain'},
+            'save_default': True
+        })
+        self.assertEqual(res_apply.status_code, 200)
+        data_apply = json.loads(res_apply.data)
+        self.assertTrue(data_apply['success'])
+
+        from display.config import get_monitor_default_content
+        self.assertEqual(get_monitor_default_content("1")['url'], 'https://play.autodarts.io')
+        self.assertEqual(get_monitor_default_content("2")['image'], 'bg.png')
+        self.assertEqual(get_monitor_default_content("2")['fit'], 'contain')
+
+    def test_wake_screen_uses_configured_defaults(self):
+        """Test waking screen starts with configured default site/wallpaper"""
+        from display.config import set_monitor_default_content
+        from unittest.mock import patch
+
+        set_monitor_default_content("1", {"type": "website", "url": "https://play.autodarts.io"})
+        set_monitor_default_content("2", {"type": "slideshow", "mode": "random", "interval": 30, "fit": "cover"})
+
+        with patch("display.manager._launch_chromium_process") as mock_launch:
+            res_wake = self.client.post('/api/display/wake')
+            self.assertEqual(res_wake.status_code, 200)
+            data_wake = json.loads(res_wake.data)
+            self.assertTrue(data_wake['success'])
+            self.assertEqual(data_wake['state']['status'], 'running')
+            # Mode reflects mixed because mon 1 is website and mon 2 is slideshow
+            self.assertEqual(data_wake['state']['mode'], 'mixed')
+
 if __name__ == '__main__':
     unittest.main()
 

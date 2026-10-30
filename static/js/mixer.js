@@ -246,9 +246,18 @@ export async function applyDualMixer() {
 
     const isSingle = appState.monitorsLoaded && avail.length === 1;
     const target1 = getMonitorTargetObject('1');
+    const saveMon1 = document.getElementById('mixerMon1SaveContentDefault')?.checked || false;
+    const saveMon2 = document.getElementById('mixerMon2SaveContentDefault')?.checked || false;
+
     const payload = isSingle
-        ? { monitor: '1', monitor1: target1 }
-        : { monitor: 'both', monitor1: target1, monitor2: getMonitorTargetObject('2') };
+        ? { monitor: '1', monitor1: target1, save_default_mon1: saveMon1 }
+        : {
+            monitor: 'both',
+            monitor1: target1,
+            monitor2: getMonitorTargetObject('2'),
+            save_default_mon1: saveMon1,
+            save_default_mon2: saveMon2
+        };
 
     try {
         showToast(
@@ -269,6 +278,10 @@ export async function applyDualMixer() {
                 'success'
             );
             fetchLiveStatus();
+            if (saveMon1 || saveMon2) {
+                const { loadMonitorsData } = await import('./monitors.js');
+                await loadMonitorsData();
+            }
         } else {
             showToast('Error: ' + data.error, 'error');
         }
@@ -313,10 +326,14 @@ export async function applySingleMonitor(monId) {
     const activeNode = getActiveNode();
 
     try {
+        const saveContent = document.getElementById(`mixerMon${monId}SaveContentDefault`)?.checked || false;
         showToast(`${activeNode.name}: Updating Monitor ${monId}...`, 'info');
         const payload = {
             monitor: monId
         };
+        if (saveContent) {
+            payload[`save_default_mon${monId}`] = true;
+        }
         if (monId === '1') {
             payload.monitor1 = target;
         } else {
@@ -332,6 +349,10 @@ export async function applySingleMonitor(monId) {
         if (data.success) {
             showToast(`${activeNode.name}: Monitor ${monId} updated!`, 'success');
             fetchLiveStatus();
+            if (saveContent) {
+                const { loadMonitorsData } = await import('./monitors.js');
+                await loadMonitorsData();
+            }
         } else {
             showToast('Error: ' + data.error, 'error');
         }

@@ -8,21 +8,27 @@ import subprocess
 from .browser import get_x_env, find_chromium, kill_chromium, fix_chromium_preferences, _launch_chromium_process
 from .monitors import get_connected_monitors
 from .window import get_xdotool_windows, position_window
-
-DEFAULT_AUTODARTS_URL = os.getenv("DEFAULT_DISPLAY_URL", os.getenv("AUTODARTS_URL", "https://play.autodarts.io"))
-DEFAULT_AUTODARTS_URL2 = os.getenv("DEFAULT_DISPLAY_URL2", os.getenv("AUTODARTS_URL2", DEFAULT_AUTODARTS_URL))
+from .config import (
+    DEFAULT_AUTODARTS_URL,
+    DEFAULT_AUTODARTS_URL2,
+    resolve_monitor_default_url
+)
 
 def start_display(url1="", url2="", monitor="both"):
     """
     Launch Chromium kiosk display for monitor 1, monitor 2, or both.
+    Uses configured default site/wallpaper when URLs are omitted.
     """
     env = get_x_env()
     chromium_cmd = find_chromium()
     home_dir = os.path.expanduser("~")
 
-    # Determine URLs
-    site1 = url1 if url1 else DEFAULT_AUTODARTS_URL
-    site2 = url2 if url2 else (url1 if url1 else DEFAULT_AUTODARTS_URL2)
+    # Determine URLs using configured persistent default site/wallpaper if not specified
+    default_url1 = resolve_monitor_default_url("1")
+    default_url2 = resolve_monitor_default_url("2")
+
+    site1 = url1 if url1 else default_url1
+    site2 = url2 if url2 else (url1 if url1 else default_url2)
 
     use_m1 = monitor in ["1", "both"]
     use_m2 = monitor in ["2", "both"]

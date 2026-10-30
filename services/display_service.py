@@ -91,11 +91,17 @@ def trigger_display_action(action_type, params=None):
     elif action_type == "wake":
         success, res = display.wake_screen()
         if success:
+            def1 = display.get_monitor_default_content("1")
+            def2 = display.get_monitor_default_content("2")
+            t1 = def1.get("type", "website")
+            t2 = def2.get("type", "website")
+            wake_mode = t1 if t1 == t2 else "mixed"
             display_state.update({
                 "status": "running",
-                "mode": "default",
+                "mode": wake_mode,
+                "monitor": "both",
                 "updated_at": datetime.now().isoformat(),
-                "last_message": "Display woken up"
+                "last_message": "Display woken up (default site/wallpaper loaded)"
             })
             return True, "Display woken successfully"
         return False, f"Failed to wake display: {res}"
@@ -146,12 +152,30 @@ def trigger_display_action(action_type, params=None):
     url1 = _resolve_target(target1_raw, '1', params)
     url2 = _resolve_target(target2_raw, '2', params)
 
+    # Save as default site/wallpaper if requested
+    save_all_default = bool(params.get('save_default', False))
+    save_mon1_default = save_all_default or bool(params.get('save_default_mon1', False))
+    save_mon2_default = save_all_default or bool(params.get('save_default_mon2', False))
+
+    if save_mon1_default and monitor in ['1', 'both'] and target1_raw:
+        c1 = target1_raw if isinstance(target1_raw, dict) else {'type': 'website', 'url': target1_raw}
+        display.set_monitor_default_content('1', c1)
+    if save_mon2_default and monitor in ['2', 'both'] and target2_raw:
+        c2 = target2_raw if isinstance(target2_raw, dict) else {'type': 'website', 'url': target2_raw}
+        display.set_monitor_default_content('2', c2)
+
     if monitor == '1':
         msg = "Updated Monitor 1"
+        if save_mon1_default:
+            msg += " (saved as default site/wallpaper)"
     elif monitor == '2':
         msg = "Updated Monitor 2"
+        if save_mon2_default:
+            msg += " (saved as default site/wallpaper)"
     else:
         msg = "Updated both monitors with selected configuration"
+        if save_all_default:
+            msg += " (saved as default site/wallpaper)"
 
     success, res = display.start_display(url1=url1, url2=url2, monitor=monitor)
     if success:
