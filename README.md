@@ -1,150 +1,150 @@
-# Pi Display Control & Image Slideshow Studio
+# pi-display-control
 
-A comprehensive, modern web control panel and display engine for Raspberry Pi multi-monitor setups. It allows switching displays between Autodarts boards, custom websites, single image displays, and automated image slideshows with randomization, customizable time intervals, and time-of-day scheduled triggers.
+A Flask web UI, REST API, and CLI tool for managing single- or dual-monitor Chromium kiosk displays on a Raspberry Pi.
 
-## Key Features
+Originally built to run an Autodarts board on one vertical monitor and a photo slideshow or status dashboard on a second monitor—without having to SSH in to run `xrandr` commands or kill hung Chromium processes by hand.
 
-- 🖥️ **Multi-Monitor Display Control**: Independent control for Monitor 1, Monitor 2, or Both Displays.
-- 🎯 **Configurable Wake & Startup Defaults**:
-  - Configure default site or wallpaper for Monitor 1 and Monitor 2 independently.
-  - Automatically loads your chosen site, single image wallpaper, or randomized slideshow whenever monitors are woken up, restarted, or booted.
-  - Easily manage defaults directly from the Monitor Mixer in the Web UI, REST API, or CLI.
-- 🔗 **Multi-Pi Fleet & Remote Displays**:
-  - Connect and manage multiple Raspberry Pis running Pi Display Control across LAN IPs, `.local` mDNS hostnames, or custom HTTPS domains via the Web UI, REST API, or environment variables.
-  - **1-Click Target Pi Switcher** in the header to control any connected Pi's monitors, orientations, websites, images, slideshows, power state, and schedules via server-side proxy (no CORS issues).
-  - **Connected Pis & Display Wall** tab to view all Pis and their displays together, rotate remote monitors, broadcast content/power (`Wake All` / `Blank All`) across all Pis, stream Main Pi's slideshow/images directly to Secondary Pi's Chromium kiosk, or sync websites and images between Pis.
-- 🖼️ **Image Slideshow Studio**:
-  - **Randomize Mode (Shuffle)** or Sequential cycling.
-  - **Timing Intervals**: Change images automatically (5s, 10s, 30s, 1m, 5m, custom interval).
-  - **Fit Modes**: Contain (preserve aspect ratio) or Cover (fill full display).
-  - **Hardware-Accelerated Transitions**: Smooth crossfade, slide-in, or instant cut.
-  - **Dedicated Fullscreen Kiosk Viewer** (`/viewer` / `/slideshow`).
-- ⏰ **Automated Time Scheduler**:
-  - Automatically switch displays or start randomized slideshows at specific times of day (e.g. 08:00 Wake & Random Slideshow, 19:00 Switch to Autodarts, 23:00 Blank Screen).
-  - Enable/disable schedule toggles with minute-precision background runner.
-- 🌐 **Website & Autodarts Management**: Save, launch, and manage custom URLs or default Autodarts boards.
-- 🌙 **Screen Power Management**: Instant Wake Screen and Blank Screen commands.
-- 🎨 **Modern Dark UI**: Glassmorphic styling, responsive layout, live status tracking, and toast alerts.
+## What it does
 
----
+- **Independent dual-monitor control**: Drive Monitor 1, Monitor 2, or both from the web UI or CLI. Each screen runs its own isolated Chromium profile (`~/.config/chromium-autodarts-monitor1` and `monitor2`) and is positioned onto the right X11 output using `xrandr` and `xdotool`.
+- **Clean Chromium kiosk launches**: Automatically patches Chromium's `Preferences` file before launch (`exit_type: Normal`, `exited_cleanly: true`) so power cycles never leave the "Chromium didn't shut down correctly" bubble on screen.
+- **Per-monitor rotation & geometry**: Rotate either monitor (`normal`, `left`, `right`, `inverted`) on the fly. When Monitor 1 is rotated between portrait and landscape, Monitor 2's X offset (`--pos`) is recalculated automatically so the two displays stay side-by-side without overlapping.
+- **Persistent wake & startup defaults**: Save a default rotation and default content (`website`, `image`, or `slideshow`) for each monitor in `data/display_settings.json`. Waking the screens—whether from the web UI, a schedule, or `.xinitrc` on boot—restores those rotations and opens each monitor's default view.
+- **Hardware monitor detection**: Queries `xrandr` for active outputs and falls back to Linux DRM sysfs (`/sys/class/drm/card*-*/status`) if X11 isn't reachable yet. Virtual/dummy connectors (`NOOP`, `VIRTUAL`, `DUMMY`, `WRITEBACK`) and unplugged ports are filtered out, and the UI adapts to 0, 1, or 2 connected screens.
+- **Built-in image viewer & slideshow (`/viewer`)**: Upload images (`png`, `jpg`, `jpeg`, `gif`, `bmp`, `webp`, `svg`) and display either a static wallpaper or a cycling slideshow. Supports shuffle or sequential order, custom intervals, `cover` / `contain` scaling, and `fade` / `slide` / `instant` transitions.
+- **Screen power control**: Blank and wake displays using `vcgencmd display_power` alongside `xrandr --off` / `--auto`.
+- **Time-of-day scheduler**: Background thread that triggers `wake`, `blank`, `website`, or `slideshow` actions at set times (`HH:MM`) on selected days of the week. Schedules can target the local Pi, a specific remote Pi, or all connected Pis.
+- **Multi-Pi support**: Link additional Raspberry Pis running `pi-display-control` over LAN IPs, `.local` hostnames, or HTTPS URLs.
+  - Switch the active target Pi in the header to control a remote Pi's monitors, rotations, websites, images, and schedules through a server-to-server proxy (avoiding browser CORS and mixed-content issues).
+  - Broadcast a layout, wake, or blank command to every Pi at once.
+  - Stream the main Pi's slideshow/images directly to a secondary Pi's browser, or sync saved websites, slideshow settings, and uploaded image files across nodes.
 
-## Quick Start
+## Setup
 
-1. **Install dependencies:**
-   ```bash
-   pip3 install -r requirements.txt
-   ```
+### Requirements
 
-2. **Run the server:**
-   ```bash
-   python3 app.py
-   ```
+- Python 3
+- X11 tools on the Pi: `xrandr`, `xdotool`, `chromium` (or `chromium-browser`), and optionally `unclutter` and `openbox` / `fluxbox` for kiosk sessions.
 
-3. **Access the control panel:**
-   - From your Pi: `http://localhost:5000`
-   - From another device on your network: `http://<pi-ip-address>:5000`
-   - Fullscreen Kiosk Viewer directly: `http://<pi-ip-address>:5000/viewer`
-
----
-
-## API Endpoints
-
-### Display & Status
-- `GET /api/status` - Live display status, running mode, counts, and server time.
-- `GET /api/display/monitors` - Discovered monitors, active orientations, and saved default rotations and default content.
-- `POST /api/display` - Start display with a Website, Image, or Slideshow on Monitor 1, 2, or Both (optional `save_default: true`).
-- `DELETE /api/display` - Blank / turn off display screens.
-- `POST /api/display/wake` - Wake / turn on display screens and launch configured default site/wallpaper.
-- `POST /api/display/default-content` - Save persistent default site or wallpaper for Monitor 1, 2, or Both.
-- `POST /api/display/defaults` - Bulk save persistent default orientations and/or default sites/wallpapers.
-- `POST /api/display/reset-defaults` - Restore active displays to saved default orientations and default content.
-
-### Image Library & Slideshow
-- `GET /api/images` - List uploaded images.
-- `POST /api/images` - Upload new image (PNG, JPG, JPEG, GIF, WEBP, SVG).
-- `DELETE /api/images/<index>` - Delete an uploaded image.
-- `GET /api/slideshow` - Get slideshow configuration.
-- `POST /api/slideshow` - Update slideshow mode (`random`/`sequential`), interval, transitions, and fit.
-- `GET /api/viewer/data` - Kiosk viewer data sync endpoint.
-
-### Websites
-- `GET /api/websites` - List saved websites.
-- `POST /api/websites` - Add a new website URL.
-- `DELETE /api/websites/<index>` - Delete a website by index.
-
-### Automated Scheduler
-- `GET /api/schedules` - List all scheduled time triggers.
-- `POST /api/schedules` - Create a new time-of-day schedule (supports targeting `local`, `all`, or a specific connected Pi).
-- `PUT /api/schedules/<id>/toggle` - Toggle schedule active/inactive.
-- `DELETE /api/schedules/<id>` - Delete a schedule.
-
-### Connected Pis & Multi-Display Fleet
-- `GET /api/nodes` - List local and connected remote Pi nodes.
-- `GET /api/nodes/overview` - Concurrent live health, display status, and discovered monitors across all Pis.
-- `POST /api/nodes/probe` - Test connectivity and auto-discover a Pi running Pi Display Control.
-- `POST /api/nodes` - Connect a new remote Pi node.
-- `PUT /api/nodes/<id>` - Update local or remote Pi node configuration.
-- `DELETE /api/nodes/<id>` - Disconnect a remote Pi node.
-- `POST /api/nodes/<id>/display` - Dispatch display content, stream Main Pi viewer, wake, blank, or rotate on a target Pi.
-- `POST /api/nodes/broadcast` - Broadcast display content, wake, or blank across all connected Pis.
-- `POST /api/nodes/<id>/sync` - Sync saved websites, slideshow settings, and uploaded images to a remote Pi.
-- `ANY /api/nodes/<id>/proxy/<api_path>` - Transparent server-to-server API & media proxy to a connected Pi.
-
----
-
-## Configuration & Environment Variables
-
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `PORT` | `5000` | HTTP server listening port |
-| `DATA_DIR` | `/data` or `./data` | Directory for JSON data and uploaded image storage |
-| `WORK_DIR` | `~` | Home/working directory for user configs |
-| `MAIN_PI_URL` | *(auto-detected)* | Optional public base URL override for Main Pi |
-| `SECONDARY_PI_URL` | *(none)* | Optional URL to pre-seed a connected Secondary Pi on first run |
-| `PI_NODE_ROLE` | *(auto-detected)* | Optional `'main'` or `'secondary'` override for default node seeding |
-| `DEFAULT_DISPLAY_URL` | `https://play.autodarts.io` | Default fallback kiosk URL for Monitor 1 |
-| `DEFAULT_DISPLAY_URL2` | `DEFAULT_DISPLAY_URL` | Default fallback kiosk URL for Monitor 2 |
-
----
-
-## Standalone CLI Display Control
-
-All display controls can also be triggered directly from Python CLI without running the web server:
+Install the Python dependencies:
 
 ```bash
-# Start or update display
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+*(Note: `app.py` automatically checks for `.venv`, `venv`, or `env` in the project directory, so you can also invoke `python3 app.py` directly once the virtualenv is created.)*
+
+### Running the web server
+
+```bash
+python3 app.py
+```
+
+By default the server listens on `http://0.0.0.0:5000`:
+
+- Control panel: `http://<pi-ip>:5000`
+- Fullscreen slideshow/image viewer: `http://<pi-ip>:5000/viewer`
+
+### Booting into kiosk mode (`.xinitrc`)
+
+An example [`.xinitrc`](.xinitrc) is included for starting X11 directly into your saved display configuration:
+
+1. Hides the idle mouse cursor with `unclutter`.
+2. Starts `openbox` or `fluxbox` if installed.
+3. Calls `python3 display_manager.py wake`, which powers on the HDMI outputs, applies your saved monitor rotations, and launches Chromium on each screen with its configured default content.
+
+## CLI usage (`display_manager.py`)
+
+You can control the displays directly from the terminal or scripts without going through the web UI:
+
+```bash
+# Check connected monitors, active resolutions, and saved startup defaults
+python3 display_manager.py status
+
+# Start displays (uses saved defaults if URLs are omitted)
 python3 display_manager.py start "https://play.autodarts.io" "https://example.com"
+python3 display_manager.py start "https://play.autodarts.io" --monitor 1
 
-# Blank/power off screens
+# Blank (power off) or wake (power on + restore defaults)
 python3 display_manager.py blank
-
-# Wake/power on screens (loads saved default site/wallpaper)
 python3 display_manager.py wake
 
-# Configure default site or wallpaper for monitors when woken/started
-python3 display_manager.py set-default-content --monitor 1 --type website --url "https://play.autodarts.io" --name "Autodarts Board"
-python3 display_manager.py set-default-content --monitor 2 --type slideshow --mode random --interval 30
-python3 display_manager.py set-default-content --monitor 2 --type image --image "flower.jpg" --fit cover
+# Rotate a monitor immediately (normal, left, right, inverted)
+python3 display_manager.py rotate --monitor 1 --rotation left --save-default --restart
+python3 display_manager.py rotate --monitor 2 --rotation right --save-default --restart
 
-# Configure default monitor orientation
+# Save default startup rotation without changing the current screen
 python3 display_manager.py set-default-rotation --monitor 1 --rotation left
 python3 display_manager.py set-default-rotation --monitor 2 --rotation right
 
-# Restore displays to saved default orientations and default content
+# Save default startup/wake content per monitor
+python3 display_manager.py set-default-content --monitor 1 --type website --url "https://play.autodarts.io" --name "Autodarts Board"
+python3 display_manager.py set-default-content --monitor 2 --type slideshow --mode random --interval 30 --fit cover
+python3 display_manager.py set-default-content --monitor 2 --type image --image "wallpaper.jpg" --fit cover
+
+# Re-apply saved default rotations
 python3 display_manager.py apply-defaults --restart
 
-# Toggle monitor 2 vertical/horizontal rotation
+# Quick toggle Monitor 2 between vertical and horizontal
 python3 display_manager.py toggle-monitor2 --restart
-
-# Check connected monitors
-python3 display_manager.py status
 ```
 
----
+## Environment variables
 
-## Testing
+All runtime data (website list, uploaded images, slideshow settings, schedules, monitor defaults, and linked Pi nodes) is stored as JSON in `DATA_DIR`. If `/data` exists and is writable (e.g. in a container), it is used automatically; otherwise `./data` inside the repo is used.
 
-Run the automated test suite:
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `PORT` | `5000` | Port for the Flask server and local `/viewer` URLs |
+| `DATA_DIR` | `/data` or `./data` | Directory for JSON config files and uploaded images |
+| `UPLOAD_FOLDER` | `$DATA_DIR/uploads/images` | Directory where uploaded images are stored |
+| `WORK_DIR` | `~` | Home directory used for locating user configs |
+| `DEFAULT_DISPLAY_URL` | `https://play.autodarts.io` | Fallback URL for Monitor 1 when no URL is configured |
+| `DEFAULT_DISPLAY_URL2` | `DEFAULT_DISPLAY_URL` | Fallback URL for Monitor 2 when no URL is configured |
+| `MAIN_PI_URL` | *(auto-detected)* | Optional base URL override for the main Pi (used when streaming to remote Pis) |
+| `SECONDARY_PI_URL` | *(none)* | Optional URL to pre-populate a secondary Pi node on first run |
+| `PI_NODE_ROLE` | *(auto-detected)* | Set to `main` or `secondary` to override hostname-based node role detection |
+
+## API overview
+
+### Display & hardware
+- `GET /api/status` — Current display state, active mode, item counts, and server time.
+- `GET /api/display/monitors` — Connected monitors, resolutions, active rotations, and saved startup defaults.
+- `POST /api/display` — Launch a website, single image, slideshow, or per-monitor mix (`monitor`: `1`, `2`, or `both`; optional `save_default: true`).
+- `DELETE /api/display` — Blank screens and stop Chromium.
+- `POST /api/display/wake` — Wake screens, restore default rotations, and launch default content.
+- `POST /api/display/rotate` — Rotate `1`, `2`, or `both` (`normal`, `left`, `right`, `inverted`), with optional `save_default` and `restart_browser`.
+- `POST /api/display/default-content` — Save default wake/startup content for Monitor 1, 2, or both (optional `apply_now: true`).
+- `POST /api/display/defaults` — Bulk-save default rotations and/or default content.
+- `POST /api/display/reset-defaults` — Re-apply saved default rotations to connected monitors.
+
+### Media & websites
+- `GET /api/websites` / `POST /api/websites` / `DELETE /api/websites/<index>` — Manage saved URLs.
+- `GET /api/images` / `POST /api/images` / `DELETE /api/images/<index>` — List, upload (`multipart/form-data`), or delete images.
+- `GET /api/images/<filename>` — Serve an uploaded image file.
+- `GET /api/slideshow` / `POST /api/slideshow` — Read or update slideshow settings (`mode`, `interval`, `transition`, `fit`, `selected_images`, `background_color`).
+- `GET /api/viewer/data` — JSON feed used by the `/viewer` page.
+
+### Schedules
+- `GET /api/schedules` / `POST /api/schedules` — List or create time-of-day schedules (`time` in `HH:MM`, `days`, `action`, and `params.target_node` set to `local`, `all`, or a node ID).
+- `PUT /api/schedules/<id>/toggle` — Enable or disable a schedule.
+- `DELETE /api/schedules/<id>` — Remove a schedule.
+
+### Multi-Pi nodes
+- `GET /api/nodes` — List local Pi metadata and configured remote Pi nodes.
+- `GET /api/nodes/overview` — Poll live status and connected monitor counts across all Pis concurrently.
+- `POST /api/nodes/probe` — Test connectivity to another Pi and inspect its monitors before saving.
+- `POST /api/nodes` / `PUT /api/nodes/<id>` / `DELETE /api/nodes/<id>` — Add, update, or remove a remote Pi node.
+- `GET /api/nodes/<id>/status` — Poll live status for a single node.
+- `POST /api/nodes/<id>/display` — Send a `display`, `wake`, `blank`, or `rotate` action to a specific Pi (supports `stream_from_main: true`).
+- `POST /api/nodes/broadcast` — Broadcast an action across all enabled Pis.
+- `POST /api/nodes/<id>/sync` — Push saved websites, slideshow settings, and/or uploaded images to a remote Pi.
+- `ANY /api/nodes/<id>/proxy/<api_path>` — Server-to-server proxy to a remote Pi's `/api/*` endpoints (with `X-Pi-Proxy-Hop` loop prevention).
+
+## Tests
+
 ```bash
 python3 test_app.py
 ```
