@@ -479,6 +479,12 @@ export function renderNodesGrid() {
                                     title="Rotate Monitor ${idx} on ${escapeHtml(node.name)}">
                                 ${getIcon('rotate')} Rotate
                             </button>
+                            <button type="button" class="btn btn-xs ${m.blanked ? 'btn-neutral' : 'btn-muted-danger'}"
+                                    onclick="handleNodePower('${escapeHtml(node.id)}', '${m.blanked ? 'wake' : 'blank'}', '${idx}')"
+                                    ${!node.online ? 'disabled' : ''}
+                                    title="${m.blanked ? 'Wake' : 'Blank'} Monitor ${idx} on ${escapeHtml(node.name)}">
+                                ${getIcon(m.blanked ? 'sun' : 'moon')} ${m.blanked ? 'Wake' : 'Blank'}
+                            </button>
                         </div>
                     </div>
                 `;
@@ -626,20 +632,27 @@ export function renderNodesGrid() {
     }).join('');
 }
 
-export async function handleNodePower(nodeId, action) {
+export async function handleNodePower(nodeId, action, monitor = 'both') {
     const verb = action === 'blank' ? 'Blanking' : 'Waking';
+    const targetLabel = (monitor && monitor !== 'both') ? `Monitor ${monitor}` : 'displays';
     try {
-        showToast(`${verb} displays...`, 'info');
+        showToast(`${verb} ${targetLabel}...`, 'info');
         const res = await fetch(`/api/nodes/${encodeURIComponent(nodeId)}/display`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action })
+            body: JSON.stringify({ action, payload: { monitor: monitor || 'both' }, monitor: monitor || 'both' })
         });
         const data = await res.json();
         if (data.success) {
             showToast(data.message || 'Display power updated', 'success');
             refreshNodesOverview(false);
-            if (nodeId === appState.activeNodeId) fetchLiveStatus();
+            if (nodeId === appState.activeNodeId) {
+                fetchLiveStatus();
+                try {
+                    const { loadMonitorsData } = await import('./monitors.js');
+                    await loadMonitorsData();
+                } catch (_) {}
+            }
         } else {
             showToast('Error: ' + data.error, 'error');
         }

@@ -12,7 +12,7 @@ Originally built to run an Autodarts board on one vertical monitor and a photo s
 - **Persistent wake & startup defaults**: Save a default rotation and default content (`website`, `image`, or `slideshow`) for each monitor in `data/display_settings.json`. Waking the screens—whether from the web UI, a schedule, or `.xinitrc` on boot—restores those rotations and opens each monitor's default view.
 - **Hardware monitor detection**: Queries `xrandr` for active outputs and falls back to Linux DRM sysfs (`/sys/class/drm/card*-*/status`) if X11 isn't reachable yet. Virtual/dummy connectors (`NOOP`, `VIRTUAL`, `DUMMY`, `WRITEBACK`) and unplugged ports are filtered out, and the UI adapts to 0, 1, or 2 connected screens.
 - **Built-in image viewer & slideshow (`/viewer`)**: Upload images (`png`, `jpg`, `jpeg`, `gif`, `bmp`, `webp`, `svg`) and display either a static wallpaper or a cycling slideshow. Supports shuffle or sequential order, custom intervals, `cover` / `contain` scaling, and `fade` / `slide` / `instant` transitions.
-- **Screen power control**: Blank and wake displays using `vcgencmd display_power` alongside `xrandr --off` / `--auto`.
+- **Screen power control**: Blank and wake displays using `vcgencmd display_power` alongside `xrandr --off` / `--auto`. Supports blanking all monitors or blanking an individual monitor (`--monitor 1` or `--monitor 2`).
 - **Time-of-day scheduler**: Background thread that triggers `wake`, `blank`, `website`, or `slideshow` actions at set times (`HH:MM`) on selected days of the week. Schedules can target the local Pi, a specific remote Pi, or all connected Pis.
 - **Multi-Pi support**: Link additional Raspberry Pis running `pi-display-control` over LAN IPs, `.local` hostnames, or HTTPS URLs.
   - Switch the active target Pi in the header to control a remote Pi's monitors, rotations, websites, images, and schedules through a server-to-server proxy (avoiding browser CORS and mixed-content issues).
@@ -67,9 +67,12 @@ python3 display_manager.py status
 python3 display_manager.py start "https://play.autodarts.io" "https://example.com"
 python3 display_manager.py start "https://play.autodarts.io" --monitor 1
 
-# Blank (power off) or wake (power on + restore defaults)
-python3 display_manager.py blank
-python3 display_manager.py wake
+# Blank (power off) or wake (power on + restore defaults) - both monitors or single monitor
+python3 display_manager.py blank                    # blanks both screens
+python3 display_manager.py blank --monitor 1        # blanks Monitor 1 only
+python3 display_manager.py blank --monitor 2        # blanks Monitor 2 only
+python3 display_manager.py wake --monitor 1         # wakes Monitor 1 only
+python3 display_manager.py wake                     # wakes all screens
 
 # Rotate a monitor immediately (normal, left, right, inverted)
 python3 display_manager.py rotate --monitor 1 --rotation left --save-default --restart
@@ -113,8 +116,9 @@ All runtime data (website list, uploaded images, slideshow settings, schedules, 
 - `GET /api/status` — Current display state, active mode, item counts, and server time.
 - `GET /api/display/monitors` — Connected monitors, resolutions, active rotations, and saved startup defaults.
 - `POST /api/display` — Launch a website, single image, slideshow, or per-monitor mix (`monitor`: `1`, `2`, or `both`; optional `save_default: true`).
-- `DELETE /api/display` — Blank screens and stop Chromium.
-- `POST /api/display/wake` — Wake screens, restore default rotations, and launch default content.
+- `DELETE /api/display` — Blank screens and stop Chromium (supports `?monitor=1`, `?monitor=2`, or `?monitor=both`).
+- `POST /api/display/blank` — Blank screens and stop Chromium (`{"monitor": "1" | "2" | "both"}`).
+- `POST /api/display/wake` — Wake screens, restore default rotations, and launch default content (supports `{"monitor": "1" | "2" | "both"}`).
 - `POST /api/display/rotate` — Rotate `1`, `2`, or `both` (`normal`, `left`, `right`, `inverted`), with optional `save_default` and `restart_browser`.
 - `POST /api/display/default-content` — Save default wake/startup content for Monitor 1, 2, or both (optional `apply_now: true`).
 - `POST /api/display/defaults` — Bulk-save default rotations and/or default content.

@@ -35,29 +35,52 @@ def _set_display_power(power_on=True):
     except Exception:
         pass
 
-def blank_screen():
-    """Power off screens and terminate Chromium"""
+def blank_screen(monitor="both"):
+    """
+    Power off screens and terminate Chromium.
+    monitor: 'both' (all displays), '1' (Monitor 1 only), or '2' (Monitor 2 only)
+    """
+    clean_mon = str(monitor).lower() if monitor is not None else "both"
+    if clean_mon not in ["1", "2", "both"]:
+        clean_mon = "both"
+
     env = get_x_env()
+    monitors = get_connected_monitors()
 
-    # Kill Chromium
-    kill_chromium("both")
+    if clean_mon == "2" and len(monitors) < 2:
+        return False, "Monitor 2 is not connected"
 
-    # Raspberry Pi hardware blanking
-    _set_display_power(power_on=False)
+    # Selectively terminate Chromium
+    kill_chromium(clean_mon)
+
+    # Hardware display power off if blanking both (or single attached display)
+    if clean_mon == "both" or (clean_mon == "1" and len(monitors) <= 1):
+        _set_display_power(power_on=False)
 
     # Turn off outputs via xrandr
     if shutil.which("xrandr"):
-        monitors = get_connected_monitors()
-        for m in monitors:
-            subprocess.run(["xrandr", "--output", m["name"], "--off"], env=env, stderr=subprocess.DEVNULL)
+        if clean_mon == "both":
+            for m in monitors:
+                subprocess.run(["xrandr", "--output", m["name"], "--off"], env=env, stderr=subprocess.DEVNULL)
+        elif clean_mon == "1" and len(monitors) >= 1:
+            subprocess.run(["xrandr", "--output", monitors[0]["name"], "--off"], env=env, stderr=subprocess.DEVNULL)
+        elif clean_mon == "2" and len(monitors) >= 2:
+            subprocess.run(["xrandr", "--output", monitors[1]["name"], "--off"], env=env, stderr=subprocess.DEVNULL)
 
+    if clean_mon in ["1", "2"]:
+        return True, f"Monitor {clean_mon} blanked successfully"
     return True, "Display blanked successfully"
 
-def wake_screen(url1="", url2=""):
+def wake_screen(url1="", url2="", monitor="both"):
     """
     Power on screens, restore display configuration according to saved defaults,
     and restart Chromium.
+    monitor: 'both' (default), '1', or '2'
     """
+    clean_mon = str(monitor).lower() if monitor is not None else "both"
+    if clean_mon not in ["1", "2", "both"]:
+        clean_mon = "both"
+
     env = get_x_env()
 
     # Hardware power on
@@ -75,18 +98,17 @@ def wake_screen(url1="", url2=""):
             m2 = monitors[1]
             mode1 = m1["modes"][0] if m1.get("modes") else f"{m1['orig_width']}x{m1['orig_height']}"
             mode2 = m2["modes"][0] if m2.get("modes") else f"{m2['orig_width']}x{m2['orig_height']}"
-
-            # Primary monitor rotated according to saved default
-            subprocess.run(["xrandr", "--output", m1["name"], "--auto", "--primary", "--mode", mode1, "--rotate", rot1], env=env, stderr=subprocess.DEVNULL)
-            
-            # Position second monitor next to monitor 1 based on monitor 1 rotated width
             rot_w1 = (m1["orig_height"] if m1.get("orig_height", 0) > 0 else 1080) if rot1 in ["left", "right"] else (m1["orig_width"] if m1.get("orig_width", 0) > 0 else 1920)
-            subprocess.run(["xrandr", "--output", m2["name"], "--auto", "--mode", mode2, "--pos", f"{rot_w1}x0", "--rotate", rot2], env=env, stderr=subprocess.DEVNULL)
+
+            if clean_mon in ["1", "both"]:
+                subprocess.run(["xrandr", "--output", m1["name"], "--auto", "--primary", "--mode", mode1, "--rotate", rot1], env=env, stderr=subprocess.DEVNULL)
+            if clean_mon in ["2", "both"]:
+                subprocess.run(["xrandr", "--output", m2["name"], "--auto", "--mode", mode2, "--pos", f"{rot_w1}x0", "--rotate", rot2], env=env, stderr=subprocess.DEVNULL)
         elif len(monitors) == 1:
             m = monitors[0]
             subprocess.run(["xrandr", "--output", m["name"], "--auto", "--rotate", rot1], env=env, stderr=subprocess.DEVNULL)
 
-    return start_display(url1=url1, url2=url2, monitor="both")
+    return start_display(url1=url1, url2=url2, monitor=clean_mon)
 
 def apply_monitor_rotation(monitor_id="1", rotation="normal", save_default=False, restart_chromium=False, site=None):
     """

@@ -712,10 +712,12 @@ def dispatch_to_node(node_id, action="display", payload=None, main_base_url=None
 
     if node.get("is_local") or is_self_node(node.get("url", ""), request_host=request_host):
         if action == "blank":
-            ok, msg = trigger_display_action("blank")
+            monitor = payload.get("monitor", "both")
+            ok, msg = trigger_display_action("blank", {"monitor": monitor})
             return ok, msg, {"state": dict(display_state)}
         if action == "wake":
-            ok, msg = trigger_display_action("wake")
+            monitor = payload.get("monitor", "both")
+            ok, msg = trigger_display_action("wake", {"monitor": monitor})
             return ok, msg, {"state": dict(display_state)}
         if action == "rotate":
             monitor = str(payload.get("monitor", "1"))
@@ -740,9 +742,12 @@ def dispatch_to_node(node_id, action="display", payload=None, main_base_url=None
 
     # Remote Pi node dispatch
     if action == "blank":
-        method, path, req_body = "DELETE", "/api/display", None
+        monitor = payload.get("monitor", "both")
+        query = f"?monitor={monitor}" if monitor and monitor != "both" else ""
+        method, path, req_body = "DELETE", f"/api/display{query}", json.dumps({"monitor": monitor}).encode("utf-8")
     elif action == "wake":
-        method, path, req_body = "POST", "/api/display/wake", b"{}"
+        monitor = payload.get("monitor", "both")
+        method, path, req_body = "POST", "/api/display/wake", json.dumps({"monitor": monitor}).encode("utf-8")
     elif action == "rotate":
         method, path, req_body = "POST", "/api/display/rotate", json.dumps(payload).encode("utf-8")
     else:

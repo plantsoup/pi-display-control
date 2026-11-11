@@ -136,6 +136,59 @@ export function updateMonitorAvailabilityUI() {
             stopBtn.title = 'Turn screens off';
         }
     }
+
+    const blankMenuToggle = document.getElementById('blankMenuToggle');
+    const wakeMenuToggle = document.getElementById('wakeMenuToggle');
+    if (blankMenuToggle) {
+        blankMenuToggle.style.display = count >= 2 ? 'inline-flex' : 'none';
+        blankMenuToggle.disabled = count === 0;
+    }
+    if (wakeMenuToggle) {
+        wakeMenuToggle.style.display = count >= 2 ? 'inline-flex' : 'none';
+        wakeMenuToggle.disabled = count === 0;
+    }
+
+    const mon1BlankBtn = document.getElementById('mon1BlankBtn');
+    const mon2BlankBtn = document.getElementById('mon2BlankBtn');
+    const mon1StatusDot = document.getElementById('mon1StatusDot');
+    const mon2StatusDot = document.getElementById('mon2StatusDot');
+    const blankedList = appState.displayState?.blanked_monitors || [];
+    const isM1Blank = (monitors[0] && monitors[0].blanked) || blankedList.includes('1') || appState.displayState?.status === 'blank';
+    const isM2Blank = (monitors[1] && monitors[1].blanked) || blankedList.includes('2') || appState.displayState?.status === 'blank';
+
+    if (mon1BlankBtn) {
+        mon1BlankBtn.style.display = count >= 1 ? 'inline-flex' : 'none';
+        if (isM1Blank) {
+            mon1BlankBtn.className = 'btn btn-xs btn-neutral';
+            mon1BlankBtn.innerHTML = '<span>Wake Mon 1</span>';
+            mon1BlankBtn.title = 'Wake / Turn on Monitor 1';
+            mon1BlankBtn.onclick = () => window.handleWakeSingleMonitor('1');
+            if (mon1StatusDot) mon1StatusDot.className = 'monitor-status-dot blank';
+        } else {
+            mon1BlankBtn.className = 'btn btn-xs btn-muted-danger';
+            mon1BlankBtn.innerHTML = count === 1 ? '<span>Blank Display</span>' : '<span>Blank Mon 1</span>';
+            mon1BlankBtn.title = count === 1 ? 'Blank display' : 'Blank / Turn off Monitor 1 only';
+            mon1BlankBtn.onclick = () => window.handleBlankSingleMonitor('1');
+            if (mon1StatusDot) mon1StatusDot.className = 'monitor-status-dot';
+        }
+    }
+
+    if (mon2BlankBtn) {
+        mon2BlankBtn.style.display = count >= 2 ? 'inline-flex' : 'none';
+        if (isM2Blank) {
+            mon2BlankBtn.className = 'btn btn-xs btn-neutral';
+            mon2BlankBtn.innerHTML = '<span>Wake Mon 2</span>';
+            mon2BlankBtn.title = 'Wake / Turn on Monitor 2';
+            mon2BlankBtn.onclick = () => window.handleWakeSingleMonitor('2');
+            if (mon2StatusDot) mon2StatusDot.className = 'monitor-status-dot blank';
+        } else {
+            mon2BlankBtn.className = 'btn btn-xs btn-muted-danger';
+            mon2BlankBtn.innerHTML = '<span>Blank Mon 2</span>';
+            mon2BlankBtn.title = 'Blank / Turn off Monitor 2 only';
+            mon2BlankBtn.onclick = () => window.handleBlankSingleMonitor('2');
+            if (mon2StatusDot) mon2StatusDot.className = 'monitor-status-dot';
+        }
+    }
 }
 
 export function renderMonitorRotationControls() {

@@ -48,12 +48,14 @@ if __name__ == '__main__':
     start_parser.add_argument("--monitor", choices=["1", "2", "both"], default="both", help="Target monitor")
 
     # blank command
-    subparsers.add_parser("blank", help="Blank/power off display screens")
+    blank_parser = subparsers.add_parser("blank", help="Blank/power off display screens")
+    blank_parser.add_argument("--monitor", choices=["1", "2", "both"], default="both", help="Target monitor to blank (1, 2, or both; default: both)")
 
     # wake command
     wake_parser = subparsers.add_parser("wake", help="Wake/power on display screens and apply default rotations")
     wake_parser.add_argument("url1", nargs="?", default="", help="URL for Monitor 1")
     wake_parser.add_argument("url2", nargs="?", default="", help="URL for Monitor 2")
+    wake_parser.add_argument("--monitor", choices=["1", "2", "both"], default="both", help="Target monitor to wake (1, 2, or both; default: both)")
 
     # rotate command
     rotate_parser = subparsers.add_parser("rotate", help="Rotate monitor and optionally set as startup default")
@@ -96,10 +98,10 @@ if __name__ == '__main__':
         success, msg = start_display(url1=args.url1, url2=args.url2, monitor=args.monitor)
         print(f"[{'OK' if success else 'ERROR'}] {msg}")
     elif args.action == "blank":
-        success, msg = blank_screen()
+        success, msg = blank_screen(monitor=args.monitor)
         print(f"[{'OK' if success else 'ERROR'}] {msg}")
     elif args.action == "wake":
-        success, msg = wake_screen(url1=args.url1, url2=args.url2)
+        success, msg = wake_screen(url1=args.url1, url2=args.url2, monitor=args.monitor)
         print(f"[{'OK' if success else 'ERROR'}] {msg}")
     elif args.action == "rotate":
         if args.monitor == "both":

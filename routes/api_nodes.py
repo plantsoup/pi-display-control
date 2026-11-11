@@ -282,7 +282,9 @@ def node_display_action(node_id):
 
     data = request.json or {}
     action = data.get("action", "display")
-    payload = data.get("payload") if isinstance(data.get("payload"), dict) else data
+    payload = data.get("payload") if isinstance(data.get("payload"), dict) else dict(data)
+    if "monitor" in data and "monitor" not in payload:
+        payload["monitor"] = data["monitor"]
     main_base = resolve_public_base_url(request.host_url)
 
     ok, msg, resp_data = dispatch_to_node(

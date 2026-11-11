@@ -216,6 +216,17 @@
     display: inline-block;
 }
 
+.monitor-status-dot.blank {
+    background: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+}
+
+.monitor-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .monitor-badge {
     font-size: 0.7rem;
     font-weight: 700;

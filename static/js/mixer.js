@@ -360,3 +360,47 @@ export async function applySingleMonitor(monId) {
         showToast(`Error updating Monitor ${monId}: ` + err.message, 'error');
     }
 }
+
+export async function handleBlankSingleMonitor(monId) {
+    const activeNode = getActiveNode();
+    try {
+        showToast(`${activeNode.name}: Blanking Monitor ${monId}...`, 'info');
+        const res = await apiFetch(`/api/display?monitor=${encodeURIComponent(monId)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`${activeNode.name}: Monitor ${monId} blanked (screen turned off)`, 'success');
+            fetchLiveStatus();
+            const { loadMonitorsData } = await import('./monitors.js');
+            await loadMonitorsData();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast(`Error blanking Monitor ${monId}: ` + err.message, 'error');
+    }
+}
+
+export async function handleWakeSingleMonitor(monId) {
+    const activeNode = getActiveNode();
+    try {
+        showToast(`${activeNode.name}: Waking Monitor ${monId}...`, 'info');
+        const res = await apiFetch('/api/display/wake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monitor: monId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`${activeNode.name}: Monitor ${monId} woken up`, 'success');
+            fetchLiveStatus();
+            const { loadMonitorsData } = await import('./monitors.js');
+            await loadMonitorsData();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (err) {
+        showToast(`Error waking Monitor ${monId}: ` + err.message, 'error');
+    }
+}

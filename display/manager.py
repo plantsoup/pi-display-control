@@ -4,6 +4,7 @@ Coordinates Chromium instances across single and multi-monitor setups.
 """
 
 import os
+import shutil
 import subprocess
 from .browser import get_x_env, find_chromium, kill_chromium, fix_chromium_preferences, _launch_chromium_process
 from .monitors import get_connected_monitors
@@ -11,7 +12,8 @@ from .window import get_xdotool_windows, position_window
 from .config import (
     DEFAULT_AUTODARTS_URL,
     DEFAULT_AUTODARTS_URL2,
-    resolve_monitor_default_url
+    resolve_monitor_default_url,
+    get_monitor_rotation
 )
 
 def start_display(url1="", url2="", monitor="both"):
@@ -51,8 +53,17 @@ def start_display(url1="", url2="", monitor="both"):
         m1 = monitors[0]
         m2 = monitors[1]
 
-        # Ensure primary output is set
-        subprocess.run(["xrandr", "--output", m1["name"], "--primary"], env=env, stderr=subprocess.DEVNULL)
+        rot1 = get_monitor_rotation("1", default="left")
+        rot2 = get_monitor_rotation("2", default="right")
+
+        if shutil.which("xrandr"):
+            if use_m1:
+                mode1 = m1["modes"][0] if m1.get("modes") else f"{m1['orig_width']}x{m1['orig_height']}"
+                subprocess.run(["xrandr", "--output", m1["name"], "--auto", "--primary", "--mode", mode1, "--rotate", rot1], env=env, stderr=subprocess.DEVNULL)
+            if use_m2:
+                mode2 = m2["modes"][0] if m2.get("modes") else f"{m2['orig_width']}x{m2['orig_height']}"
+                rot_w1 = (m1["orig_height"] if m1.get("orig_height", 0) > 0 else 1080) if rot1 in ["left", "right"] else (m1["orig_width"] if m1.get("orig_width", 0) > 0 else 1920)
+                subprocess.run(["xrandr", "--output", m2["name"], "--auto", "--mode", mode2, "--pos", f"{rot_w1}x0", "--rotate", rot2], env=env, stderr=subprocess.DEVNULL)
 
         # Monitor 2 position calculation if needed
         pos_x2 = m2["pos_x"]
@@ -94,6 +105,11 @@ def start_display(url1="", url2="", monitor="both"):
 
     else:
         # Single monitor
+        if shutil.which("xrandr") and monitors:
+            m = monitors[0]
+            rot1 = get_monitor_rotation("1", default="left")
+            subprocess.run(["xrandr", "--output", m["name"], "--auto", "--rotate", rot1], env=env, stderr=subprocess.DEVNULL)
+
         target_site = site2 if (use_m2 and not use_m1) else site1
         target_dir = user_data_m2 if (use_m2 and not use_m1) else user_data_single
         os.makedirs(target_dir, exist_ok=True)

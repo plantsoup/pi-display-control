@@ -32,6 +32,7 @@ export async function fetchLiveStatus() {
         const data = await res.json();
         if (res.ok && data.success) {
             const state = data.state || {};
+            appState.displayState = state;
             if (!badgeText || !badge) return;
 
             const availCount = getAvailableMonitors().length;
@@ -45,9 +46,16 @@ export async function fetchLiveStatus() {
                 ? 'Monitor 1'
                 : (state.monitor || 'both');
 
+            const blankedList = state.blanked_monitors || [];
             if (state.status === 'blank') {
                 badgeText.textContent = `${prefix}Screens Off (Blanked)`;
                 if (dot) dot.className = 'status-dot blank';
+            } else if (state.mode === 'mon1_blank' || blankedList.includes('1')) {
+                badgeText.textContent = `${prefix}Monitor 1 Blanked (Mon 2 Active)`;
+                if (dot) dot.className = 'status-dot active';
+            } else if (state.mode === 'mon2_blank' || blankedList.includes('2')) {
+                badgeText.textContent = `${prefix}Monitor 2 Blanked (Mon 1 Active)`;
+                if (dot) dot.className = 'status-dot active';
             } else if (state.mode === 'slideshow') {
                 badgeText.textContent = `${prefix}Slideshow Active (${monLabel})`;
                 if (dot) dot.className = 'status-dot slideshow';
@@ -76,15 +84,21 @@ export async function fetchLiveStatus() {
     }
 }
 
-export async function handleBlankDisplay() {
+export async function handleBlankDisplay(monitor = 'both') {
     const activeNode = getActiveNode();
+    const monStr = monitor && monitor !== 'both' ? `Monitor ${monitor}` : 'screens';
     try {
-        showToast(`Turning screens off on ${activeNode.name}...`, 'info');
-        const res = await apiFetch('/api/display', { method: 'DELETE' });
+        showToast(`Turning ${monStr} off on ${activeNode.name}...`, 'info');
+        const query = monitor && monitor !== 'both' ? `?monitor=${encodeURIComponent(monitor)}` : '';
+        const res = await apiFetch(`/api/display${query}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            showToast(`${activeNode.name}: Displays blanked (screens turned off)`, 'success');
+            showToast(`${activeNode.name}: ${monitor && monitor !== 'both' ? `Monitor ${monitor}` : 'Displays'} blanked (screen turned off)`, 'success');
             fetchLiveStatus();
+            try {
+                const { loadMonitorsData } = await import('./monitors.js');
+                await loadMonitorsData();
+            } catch (_) {}
         } else {
             showToast('Error: ' + data.error, 'error');
         }
@@ -93,15 +107,24 @@ export async function handleBlankDisplay() {
     }
 }
 
-export async function handleWakeDisplay() {
+export async function handleWakeDisplay(monitor = 'both') {
     const activeNode = getActiveNode();
+    const monStr = monitor && monitor !== 'both' ? `Monitor ${monitor}` : 'screens';
     try {
-        showToast(`Waking screens on ${activeNode.name}...`, 'info');
-        const res = await apiFetch('/api/display/wake', { method: 'POST' });
+        showToast(`Waking ${monStr} on ${activeNode.name}...`, 'info');
+        const res = await apiFetch('/api/display/wake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monitor })
+        });
         const data = await res.json();
         if (data.success) {
-            showToast(`${activeNode.name}: Displays woken up`, 'success');
+            showToast(`${activeNode.name}: ${monitor && monitor !== 'both' ? `Monitor ${monitor}` : 'Displays'} woken up`, 'success');
             fetchLiveStatus();
+            try {
+                const { loadMonitorsData } = await import('./monitors.js');
+                await loadMonitorsData();
+            } catch (_) {}
         } else {
             showToast('Error: ' + data.error, 'error');
         }

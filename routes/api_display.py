@@ -72,6 +72,8 @@ def get_monitors():
         m_copy = dict(m)
         m_copy["index"] = idx
         m_copy["connected"] = True
+        m_copy["active"] = m.get("active", True)
+        m_copy["blanked"] = m.get("blanked", False)
         m_copy["current_rotation"] = m.get("rotation", "normal")
         m_copy["default_rotation"] = rot_defaults.get(mon_idx_str, "normal")
         m_copy["default_content"] = content_defaults.get(mon_idx_str, {})
@@ -311,16 +313,33 @@ def start_display_route():
 
 @api_display_bp.route('/api/display', methods=['DELETE'])
 def stop_display():
-    """Stop/Blank display"""
-    success, msg = trigger_display_action('blank')
+    """Stop/Blank display (supports monitor="1", "2", "both")"""
+    monitor = request.args.get('monitor')
+    if not monitor:
+        data = request.get_json(silent=True) or {}
+        monitor = data.get('monitor')
+    monitor = monitor or 'both'
+    success, msg = trigger_display_action('blank', {'monitor': monitor})
+    if success:
+        return jsonify({"success": True, "message": msg, "state": display_state})
+    return jsonify({"success": False, "error": msg}), 500
+
+@api_display_bp.route('/api/display/blank', methods=['POST'])
+def blank_display():
+    """Blank display (POST alternative supporting monitor target)"""
+    data = request.get_json(silent=True) or {}
+    monitor = data.get('monitor') or request.args.get('monitor') or 'both'
+    success, msg = trigger_display_action('blank', {'monitor': monitor})
     if success:
         return jsonify({"success": True, "message": msg, "state": display_state})
     return jsonify({"success": False, "error": msg}), 500
 
 @api_display_bp.route('/api/display/wake', methods=['POST'])
 def wake_display():
-    """Wake display (restores displays to saved default rotations)"""
-    success, msg = trigger_display_action('wake')
+    """Wake display (restores displays to saved default rotations; supports monitor="1", "2", "both")"""
+    data = request.get_json(silent=True) or {}
+    monitor = data.get('monitor') or request.args.get('monitor') or 'both'
+    success, msg = trigger_display_action('wake', {'monitor': monitor})
     if success:
         return jsonify({"success": True, "message": msg, "state": display_state})
     return jsonify({"success": False, "error": msg}), 500

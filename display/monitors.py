@@ -63,6 +63,16 @@ def _detect_drm_connected_monitors():
             except Exception:
                 pass
 
+        # Check if connector is enabled in sysfs
+        is_enabled = True
+        enabled_path = os.path.join(conn_dir, "enabled")
+        if os.path.exists(enabled_path):
+            try:
+                with open(enabled_path, "r", encoding="utf-8") as f:
+                    is_enabled = (f.read().strip().lower() == "enabled")
+            except Exception:
+                pass
+
         monitors.append({
             "name": short_name,
             "primary": len(monitors) == 0,
@@ -74,7 +84,9 @@ def _detect_drm_connected_monitors():
             "pos_y": 0,
             "rotation": "normal",
             "modes": modes,
-            "connected": True
+            "connected": True,
+            "active": is_enabled,
+            "blanked": not is_enabled
         })
 
     return monitors
@@ -128,6 +140,7 @@ def get_connected_monitors():
 
             orig_w, orig_h = 1920, 1080
             pos_x, pos_y = 0, 0
+            is_active = bool(res_pos_match)
             if res_pos_match:
                 orig_w = int(res_pos_match.group(1))
                 orig_h = int(res_pos_match.group(2))
@@ -153,7 +166,9 @@ def get_connected_monitors():
                 "pos_y": pos_y,
                 "rotation": rotation,
                 "modes": [],
-                "connected": True
+                "connected": True,
+                "active": is_active,
+                "blanked": not is_active
             }
             monitors.append(current_monitor)
         elif line and not line[0].isspace():

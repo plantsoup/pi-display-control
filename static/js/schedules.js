@@ -57,9 +57,15 @@ export function renderSchedulesList() {
         } else if (sch.action === 'website') {
             actionDesc = `Switch to website/Autodarts`;
         } else if (sch.action === 'blank') {
-            actionDesc = `Blank screen (Sleep)`;
+            const monDesc = (sch.params && sch.params.monitor && sch.params.monitor !== 'both')
+                ? `Monitor ${sch.params.monitor}`
+                : 'Screens';
+            actionDesc = `Blank ${monDesc} (Sleep)`;
         } else if (sch.action === 'wake') {
-            actionDesc = `Wake screen (Turn on)`;
+            const monDesc = (sch.params && sch.params.monitor && sch.params.monitor !== 'both')
+                ? `Monitor ${sch.params.monitor}`
+                : 'Screens';
+            actionDesc = `Wake ${monDesc} (Turn on)`;
         }
 
         const targetNode = sch.params?.target_node || 'local';
@@ -189,6 +195,10 @@ export function onScheduleActionChange() {
     } else if (action === 'website') {
         if (slideshowOptions) slideshowOptions.style.display = 'none';
         if (websiteOptions) websiteOptions.style.display = 'block';
+        if (monitorGroup) monitorGroup.style.display = 'block';
+    } else if (action === 'blank' || action === 'wake') {
+        if (slideshowOptions) slideshowOptions.style.display = 'none';
+        if (websiteOptions) websiteOptions.style.display = 'none';
         if (monitorGroup) monitorGroup.style.display = 'block';
     } else {
         if (slideshowOptions) slideshowOptions.style.display = 'none';

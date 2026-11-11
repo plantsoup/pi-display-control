@@ -34,18 +34,64 @@
                     <span id="liveStatusText">Checking status...</span>
                 </div>
                 <div class="header-quick-actions">
-                    <button id="wakeDisplay" class="btn btn-sm btn-neutral" title="Turn screen on">
-                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-                        </svg>
-                        <span>Wake Screen</span>
-                    </button>
-                    <button id="stopDisplay" class="btn btn-sm btn-muted-danger" title="Turn screen off">
-                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-                        </svg>
-                        <span>Blank Screen</span>
-                    </button>
+                    <div class="header-power-dropdown-wrapper" id="wakeDropdownWrapper">
+                        <div class="btn-group">
+                            <button id="wakeDisplay" class="btn btn-sm btn-neutral" title="Turn screen on">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                                </svg>
+                                <span>Wake Screen</span>
+                            </button>
+                            <button id="wakeMenuToggle" type="button" class="btn btn-sm btn-neutral btn-dropdown-arrow" title="More wake options" aria-label="Wake options" style="display: none;">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="wakeDropdownMenu" class="header-power-menu" style="display: none;">
+                            <button type="button" class="power-menu-item" onclick="handleWakeDisplay('both')">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/></svg>
+                                <span>Wake Both Screens</span>
+                            </button>
+                            <button type="button" class="power-menu-item" onclick="handleWakeDisplay('1')">
+                                <span class="monitor-badge mon1-accent">Mon 1</span>
+                                <span>Wake Monitor 1 Only</span>
+                            </button>
+                            <button type="button" class="power-menu-item" onclick="handleWakeDisplay('2')">
+                                <span class="monitor-badge mon2-accent">Mon 2</span>
+                                <span>Wake Monitor 2 Only</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="header-power-dropdown-wrapper" id="blankDropdownWrapper">
+                        <div class="btn-group">
+                            <button id="stopDisplay" class="btn btn-sm btn-muted-danger" title="Turn screen off">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                                </svg>
+                                <span>Blank Screen</span>
+                            </button>
+                            <button id="blankMenuToggle" type="button" class="btn btn-sm btn-muted-danger btn-dropdown-arrow" title="More blank options" aria-label="Blank options" style="display: none;">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="blankDropdownMenu" class="header-power-menu" style="display: none;">
+                            <button type="button" class="power-menu-item" onclick="handleBlankDisplay('both')">
+                                <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                                <span>Blank Both Screens</span>
+                            </button>
+                            <button type="button" class="power-menu-item" onclick="handleBlankDisplay('1')">
+                                <span class="monitor-badge mon1-accent">Mon 1</span>
+                                <span>Blank Monitor 1 Only</span>
+                            </button>
+                            <button type="button" class="power-menu-item" onclick="handleBlankDisplay('2')">
+                                <span class="monitor-badge mon2-accent">Mon 2</span>
+                                <span>Blank Monitor 2 Only</span>
+                            </button>
+                        </div>
+                    </div>
                     <a id="openViewerLink" href="/viewer" target="_blank" class="btn btn-sm btn-ghost" title="Open Slideshow Viewer in a new browser tab">
                         <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>
@@ -233,13 +279,18 @@
                                 <div id="mon1Card" class="card monitor-config-card">
                                     <div class="card-header flex-between">
                                         <div class="monitor-title-wrapper">
-                                            <span class="monitor-status-dot"></span>
+                                            <span class="monitor-status-dot" id="mon1StatusDot"></span>
                                             <h3>Monitor 1</h3>
                                             <span class="monitor-badge mon1-accent" id="mon1HwBadge">HDMI-1</span>
                                         </div>
-                                        <button id="mon1ApplySingleBtn" class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
-                                            Update Monitor 1 Only
-                                        </button>
+                                        <div class="monitor-header-actions">
+                                            <button id="mon1BlankBtn" type="button" class="btn btn-xs btn-muted-danger" onclick="handleBlankSingleMonitor('1')" title="Blank Monitor 1 only">
+                                                Blank Mon 1
+                                            </button>
+                                            <button id="mon1ApplySingleBtn" class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('1')">
+                                                Update Monitor 1 Only
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <!-- 16:9 Live Display Preview -->
@@ -366,13 +417,18 @@
                                 <div id="mon2Card" class="card monitor-config-card">
                                     <div class="card-header flex-between">
                                         <div class="monitor-title-wrapper">
-                                            <span class="monitor-status-dot"></span>
+                                            <span class="monitor-status-dot" id="mon2StatusDot"></span>
                                             <h3>Monitor 2</h3>
                                             <span class="monitor-badge mon2-accent" id="mon2HwBadge">HDMI-2</span>
                                         </div>
-                                        <button class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('2')">
-                                            Update Monitor 2 Only
-                                        </button>
+                                        <div class="monitor-header-actions">
+                                            <button id="mon2BlankBtn" type="button" class="btn btn-xs btn-muted-danger" onclick="handleBlankSingleMonitor('2')" title="Blank Monitor 2 only">
+                                                Blank Mon 2
+                                            </button>
+                                            <button id="mon2ApplySingleBtn" class="btn btn-xs btn-subtle-secondary" onclick="applySingleMonitor('2')">
+                                                Update Monitor 2 Only
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <!-- 16:9 Live Display Preview -->

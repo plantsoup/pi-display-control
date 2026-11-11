@@ -173,6 +173,69 @@
     box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
 }
 
+/* Button Group & Header Dropdown Menus */
+.btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
+}
+.btn-group > .btn:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.btn-group > .btn:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: none;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+.header-power-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+.header-power-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 6px;
+    min-width: 210px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.power-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.power-menu-item:hover {
+    background: rgba(148, 163, 184, 0.14);
+    color: #ffffff;
+}
+.power-menu-item .svg-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
 /* 5. Ghost link: Open Viewer (border border-slate-700 hover:bg-slate-800) */
 .btn-ghost, .btn-outline {
     background: transparent;

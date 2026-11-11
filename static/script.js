@@ -12,7 +12,9 @@ import {
     getMonitorTargetObject,
     applyDualMixer,
     applyDualMixerAllPis,
-    applySingleMonitor
+    applySingleMonitor,
+    handleBlankSingleMonitor,
+    handleWakeSingleMonitor
 } from './js/mixer.js';
 import {
     loadSlideshowConfig,
@@ -102,6 +104,8 @@ Object.assign(window, {
     applyDualMixer,
     applyDualMixerAllPis,
     applySingleMonitor,
+    handleBlankSingleMonitor,
+    handleWakeSingleMonitor,
     loadSlideshowConfig,
     renderSlideshowControls,
     updateSlideshowSummaryText,
@@ -216,10 +220,51 @@ function setupEventListeners() {
     if (saveNodeForm) saveNodeForm.addEventListener('submit', handleSaveNode);
 
     const stopDisplayBtn = document.getElementById('stopDisplay');
-    if (stopDisplayBtn) stopDisplayBtn.addEventListener('click', handleBlankDisplay);
+    if (stopDisplayBtn) {
+        stopDisplayBtn.addEventListener('click', () => {
+            closeAllPowerMenus();
+            handleBlankDisplay('both');
+        });
+    }
 
     const wakeDisplayBtn = document.getElementById('wakeDisplay');
-    if (wakeDisplayBtn) wakeDisplayBtn.addEventListener('click', handleWakeDisplay);
+    if (wakeDisplayBtn) {
+        wakeDisplayBtn.addEventListener('click', () => {
+            closeAllPowerMenus();
+            handleWakeDisplay('both');
+        });
+    }
+
+    const blankToggle = document.getElementById('blankMenuToggle');
+    const blankMenu = document.getElementById('blankDropdownMenu');
+    if (blankToggle && blankMenu) {
+        blankToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = blankMenu.style.display !== 'none';
+            closeAllPowerMenus();
+            blankMenu.style.display = isOpen ? 'none' : 'flex';
+        });
+    }
+
+    const wakeToggle = document.getElementById('wakeMenuToggle');
+    const wakeMenu = document.getElementById('wakeDropdownMenu');
+    if (wakeToggle && wakeMenu) {
+        wakeToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = wakeMenu.style.display !== 'none';
+            closeAllPowerMenus();
+            wakeMenu.style.display = isOpen ? 'none' : 'flex';
+        });
+    }
+
+    document.addEventListener('click', () => closeAllPowerMenus());
+}
+
+function closeAllPowerMenus() {
+    const bm = document.getElementById('blankDropdownMenu');
+    const wm = document.getElementById('wakeDropdownMenu');
+    if (bm) bm.style.display = 'none';
+    if (wm) wm.style.display = 'none';
 }
 
 // -----------------------------------------------------------------------------

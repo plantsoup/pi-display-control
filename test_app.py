@@ -748,6 +748,145 @@ class PiDisplayControlTestCase(unittest.TestCase):
             # Mode reflects mixed because mon 1 is website and mon 2 is slideshow
             self.assertEqual(data_wake['state']['mode'], 'mixed')
 
+    def test_blank_single_monitor_power_logic(self):
+        """Test power.blank_screen and wake_screen for single monitor targets"""
+        import display.power as power
+        from unittest.mock import patch, MagicMock, ANY
+
+        two_monitors = [
+            {"name": "HDMI-1", "primary": True, "orig_width": 1920, "orig_height": 1080, "modes": ["1920x1080"], "connected": True},
+            {"name": "HDMI-2", "primary": False, "orig_width": 1920, "orig_height": 1080, "modes": ["1920x1080"], "connected": True}
+        ]
+
+        with patch("display.power.get_connected_monitors", return_value=two_monitors), \
+             patch("display.power.kill_chromium") as mock_kill, \
+             patch("display.power._set_display_power") as mock_hw_power, \
+             patch("subprocess.run") as mock_run, \
+             patch("shutil.which", return_value="/usr/bin/xrandr"):
+
+            # 1. Blank Monitor 1 only
+            ok, msg = power.blank_screen(monitor="1")
+            self.assertTrue(ok)
+            self.assertIn("Monitor 1", msg)
+            mock_kill.assert_called_with("1")
+            # Hardware display power off should NOT be called when keeping monitor 2 alive
+            mock_hw_power.assert_not_called()
+            # xrandr should turn off HDMI-1
+            mock_run.assert_any_call(["xrandr", "--output", "HDMI-1", "--off"], env=ANY, stderr=ANY)
+
+            mock_kill.reset_mock()
+            mock_hw_power.reset_mock()
+            mock_run.reset_mock()
+
+            # 2. Blank Monitor 2 only
+            ok2, msg2 = power.blank_screen(monitor="2")
+            self.assertTrue(ok2)
+            self.assertIn("Monitor 2", msg2)
+            mock_kill.assert_called_with("2")
+            mock_hw_power.assert_not_called()
+            mock_run.assert_any_call(["xrandr", "--output", "HDMI-2", "--off"], env=ANY, stderr=ANY)
+
+            mock_kill.reset_mock()
+            mock_hw_power.reset_mock()
+            mock_run.reset_mock()
+
+            # 3. Blank both monitors
+            ok_both, msg_both = power.blank_screen(monitor="both")
+            self.assertTrue(ok_both)
+            mock_kill.assert_called_with("both")
+            mock_hw_power.assert_called_with(power_on=False)
+
+        # 4. Error if blanking Monitor 2 when only 1 monitor is attached
+        one_monitor = [
+            {"name": "HDMI-1", "primary": True, "orig_width": 1920, "orig_height": 1080, "modes": ["1920x1080"], "connected": True}
+        ]
+        with patch("display.power.get_connected_monitors", return_value=one_monitor):
+            ok_err, msg_err = power.blank_screen(monitor="2")
+            self.assertFalse(ok_err)
+            self.assertIn("not connected", msg_err)
+
+    def test_blank_single_monitor_api_endpoints(self):
+        """Test DELETE /api/display and POST /api/display/blank with single monitor parameter"""
+        from unittest.mock import patch
+
+        two_monitors = [
+            {"name": "HDMI-1", "primary": True, "orig_width": 1920, "orig_height": 1080, "modes": ["1920x1080"], "connected": True},
+            {"name": "HDMI-2", "primary": False, "orig_width": 1920, "orig_height": 1080, "modes": ["1920x1080"], "connected": True}
+        ]
+
+        with patch("display.power.get_connected_monitors", return_value=two_monitors), \
+             patch("display.get_connected_monitors", return_value=two_monitors), \
+             patch("display.power.kill_chromium"), \
+             patch("display.power._set_display_power"), \
+             patch("subprocess.run"), \
+             patch("shutil.which", return_value="/usr/bin/xrandr"), \
+             patch("display.manager._launch_chromium_process"):
+
+            # 1. Blank Monitor 1 via DELETE query param
+            res = self.client.delete('/api/display?monitor=1')
+            self.assertEqual(res.status_code, 200)
+            data = json.loads(res.data)
+            self.assertTrue(data['success'])
+            self.assertEqual(data['state']['status'], 'running')  # Monitor 2 is still running
+            self.assertIn('1', data['state']['blanked_monitors'])
+
+            # 2. Blank Monitor 2 via POST /api/display/blank
+            res2 = self.client.post('/api/display/blank', json={'monitor': '2'})
+            self.assertEqual(res2.status_code, 200)
+            data2 = json.loads(res2.data)
+            self.assertTrue(data2['success'])
+            # Now both are blanked
+            self.assertEqual(data2['state']['status'], 'blank')
+            self.assertEqual(set(data2['state']['blanked_monitors']), {'1', '2'})
+
+            # 3. Wake Monitor 1 only via POST /api/display/wake
+            res_wake1 = self.client.post('/api/display/wake', json={'monitor': '1'})
+            self.assertEqual(res_wake1.status_code, 200)
+            data_wake1 = json.loads(res_wake1.data)
+            self.assertTrue(data_wake1['success'])
+            self.assertEqual(data_wake1['state']['status'], 'running')
+            self.assertEqual(data_wake1['state']['blanked_monitors'], ['2'])
+
+            # 4. Dispatch blank Monitor 1 via /api/nodes/local/display
+            res_node = self.client.post('/api/nodes/local/display', json={'action': 'blank', 'payload': {'monitor': '1'}})
+            self.assertEqual(res_node.status_code, 200)
+            data_node = json.loads(res_node.data)
+            self.assertTrue(data_node['success'])
+
+            # 5. Full wake restores all
+            res_wake_all = self.client.post('/api/display/wake')
+            self.assertEqual(res_wake_all.status_code, 200)
+            data_wake_all = json.loads(res_wake_all.data)
+            self.assertTrue(data_wake_all['success'])
+            self.assertEqual(data_wake_all['state']['blanked_monitors'], [])
+
+    def test_cli_blank_and_wake_monitor_args(self):
+        """Test CLI parser accepts --monitor flag for blank and wake"""
+        import subprocess
+        import sys
+
+        # Test CLI help output contains --monitor for blank
+        res = subprocess.run(
+            [sys.executable, "display_manager.py", "blank", "--help"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("--monitor", res.stdout)
+        self.assertIn("{1,2,both}", res.stdout)
+
+        # Test CLI help output contains --monitor for wake
+        res_wake = subprocess.run(
+            [sys.executable, "display_manager.py", "wake", "--help"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        self.assertEqual(res_wake.returncode, 0)
+        self.assertIn("--monitor", res_wake.stdout)
+        self.assertIn("{1,2,both}", res_wake.stdout)
+
 if __name__ == '__main__':
     unittest.main()
 

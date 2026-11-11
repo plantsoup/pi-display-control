@@ -16,6 +16,7 @@ display_state = {
     "status": "idle",       # "running", "blank", "idle"
     "mode": "default",      # "website", "image", "slideshow", "default", "mixed"
     "monitor": "both",
+    "blanked_monitors": [],
     "updated_at": datetime.now().isoformat(),
     "last_message": "Ready"
 }
@@ -77,33 +78,72 @@ def trigger_display_action(action_type, params=None):
     global display_state
 
     if action_type == "blank":
-        success, res = display.blank_screen()
+        monitor = str(params.get("monitor", "both")).lower() if params else "both"
+        if monitor not in ["1", "2", "both"]:
+            monitor = "both"
+        success, res = display.blank_screen(monitor=monitor)
         if success:
+            blanked = list(display_state.get("blanked_monitors", []))
+            if monitor == "both":
+                blanked = ["1", "2"]
+                status = "blank"
+                mode = "blank"
+                msg = "Display blanked (screens turned off)"
+            else:
+                if monitor not in blanked:
+                    blanked.append(monitor)
+                connected = display.get_connected_monitors()
+                conn_count = len(connected) if connected else 2
+                if conn_count <= len(blanked):
+                    status = "blank"
+                    mode = "blank"
+                else:
+                    status = "running"
+                    mode = f"mon{monitor}_blank"
+                msg = f"Monitor {monitor} blanked successfully"
+
             display_state.update({
-                "status": "blank",
-                "mode": "blank",
+                "status": status,
+                "mode": mode,
+                "monitor": monitor,
+                "blanked_monitors": blanked,
                 "updated_at": datetime.now().isoformat(),
-                "last_message": "Display blanked (screen turned off)"
+                "last_message": msg
             })
-            return True, "Display blanked successfully"
+            return True, msg
         return False, f"Failed to blank display: {res}"
 
     elif action_type == "wake":
-        success, res = display.wake_screen()
+        monitor = str(params.get("monitor", "both")).lower() if params else "both"
+        if monitor not in ["1", "2", "both"]:
+            monitor = "both"
+        success, res = display.wake_screen(monitor=monitor)
         if success:
-            def1 = display.get_monitor_default_content("1")
-            def2 = display.get_monitor_default_content("2")
-            t1 = def1.get("type", "website")
-            t2 = def2.get("type", "website")
-            wake_mode = t1 if t1 == t2 else "mixed"
+            blanked = list(display_state.get("blanked_monitors", []))
+            if monitor == "both":
+                blanked = []
+                def1 = display.get_monitor_default_content("1")
+                def2 = display.get_monitor_default_content("2")
+                t1 = def1.get("type", "website")
+                t2 = def2.get("type", "website")
+                wake_mode = t1 if t1 == t2 else "mixed"
+                msg = "Display woken up (default site/wallpaper loaded)"
+            else:
+                if monitor in blanked:
+                    blanked.remove(monitor)
+                def_m = display.get_monitor_default_content(monitor)
+                wake_mode = def_m.get("type", "website")
+                msg = f"Monitor {monitor} woken up (default site/wallpaper loaded)"
+
             display_state.update({
                 "status": "running",
                 "mode": wake_mode,
-                "monitor": "both",
+                "monitor": monitor,
+                "blanked_monitors": blanked,
                 "updated_at": datetime.now().isoformat(),
-                "last_message": "Display woken up (default site/wallpaper loaded)"
+                "last_message": msg
             })
-            return True, "Display woken successfully"
+            return True, msg
         return False, f"Failed to wake display: {res}"
 
     # Handle display routing (website, image, slideshow, dual mix)
@@ -179,10 +219,17 @@ def trigger_display_action(action_type, params=None):
 
     success, res = display.start_display(url1=url1, url2=url2, monitor=monitor)
     if success:
+        blanked = list(display_state.get("blanked_monitors", []))
+        if monitor == "both":
+            blanked = []
+        elif monitor in blanked:
+            blanked.remove(monitor)
+
         display_state.update({
             "status": "running",
             "mode": action_type if action_type in ['slideshow', 'website', 'image'] else 'mixed',
             "monitor": monitor,
+            "blanked_monitors": blanked,
             "updated_at": datetime.now().isoformat(),
             "last_message": msg
         })
