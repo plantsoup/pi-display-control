@@ -23,23 +23,29 @@ def get_x_env():
 def find_chromium():
     """Find installed Chromium binary executable or None if not found"""
     candidates = [
-        "/usr/lib/chromium/chromium",
-        shutil.which("chromium-browser"),
-        shutil.which("chromium"),
+        "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
-        "/usr/bin/chromium"
+        shutil.which("chromium"),
+        shutil.which("chromium-browser"),
+        "/usr/lib/chromium/chromium"
     ]
     for c in candidates:
         if c and os.path.exists(c) and os.access(c, os.X_OK):
             return c
-    return shutil.which("chromium-browser") or shutil.which("chromium") or None
+    return shutil.which("chromium") or shutil.which("chromium-browser") or None
 
 def _launch_chromium_process(cmd, env):
     """Launch Chromium process safely, handling environments where Chromium binary is absent"""
     if not cmd or not cmd[0]:
         return None
     try:
-        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(
+            cmd,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
         return proc
     except FileNotFoundError:
         return None

@@ -16,6 +16,14 @@ from .config import (
     get_monitor_rotation
 )
 
+CHROMIUM_GPU_FLAGS = [
+    "--use-angle=gles",
+    "--enable-gpu-rasterization",
+    "--enable-zero-copy",
+    "--ignore-gpu-blocklist",
+    "--enable-features=VaapiVideoDecoder,CanvasOopRasterization"
+]
+
 def start_display(url1="", url2="", monitor="both"):
     """
     Launch Chromium kiosk display for monitor 1, monitor 2, or both.
@@ -80,6 +88,7 @@ def start_display(url1="", url2="", monitor="both"):
                 "--kiosk",
                 "--disable-session-crashed-bubble",
                 "--disable-breakpad",
+                *CHROMIUM_GPU_FLAGS,
                 f"--user-data-dir={user_data_m1}",
                 site1
             ]
@@ -96,6 +105,7 @@ def start_display(url1="", url2="", monitor="both"):
                 "--kiosk",
                 "--disable-session-crashed-bubble",
                 "--disable-breakpad",
+                *CHROMIUM_GPU_FLAGS,
                 f"--user-data-dir={user_data_m2}",
                 site2
             ]
@@ -120,6 +130,7 @@ def start_display(url1="", url2="", monitor="both"):
             "--kiosk",
             "--disable-session-crashed-bubble",
             "--disable-breakpad",
+            *CHROMIUM_GPU_FLAGS,
             f"--user-data-dir={target_dir}",
             target_site
         ]
